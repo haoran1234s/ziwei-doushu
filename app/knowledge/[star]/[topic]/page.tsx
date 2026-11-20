@@ -32,8 +32,12 @@ export const dynamicParams = false;
 
 export async function generateStaticParams() {
   const routes = getAllKnowledgeRoutes();
-  // URL 用拼音 slug 替代中文，避开 Vercel/CDN 中文路由边界问题
-  return routes.map(r => ({ star: r.slug, topic: r.topic }));
+  if (routes.length > 0) {
+    // URL 用拼音 slug 替代中文，避开 Vercel/CDN 中文路由边界问题
+    return routes.map(r => ({ star: r.slug, topic: r.topic }));
+  }
+  // 开源版 STAR_DB 为空时，为 14 主星保留 overview 静态占位路由，避免 output: 'export' 报错与卡片点击 404
+  return ALL_STARS.map(star => ({ star: STAR_TO_SLUG[star], topic: 'overview' }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ star: string; topic: string }> }) {
@@ -72,7 +76,76 @@ export default async function KnowledgePage({ params }: { params: Promise<{ star
   const star = SLUG_TO_STAR[slug];
   if (!star) notFound();
   const data = getKnowledge(star, topic as TopicKey);
-  if (!data.exists) notFound();
+  if (!data.exists) {
+    return (
+      <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
+        <div
+          className="px-6 py-4 flex items-center justify-between"
+          style={{ borderBottom: '1px solid rgba(184,146,42,0.15)', background: 'var(--bg-page)' }}
+        >
+          <Link href="/knowledge" style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.3em', textDecoration: 'none' }}>
+            ← 知识库
+          </Link>
+          <div style={{ fontSize: '12px', color: 'var(--tx-3)', letterSpacing: '0.2em' }}>
+            倪师方法论 · 知识库
+          </div>
+          <Link href="/chart" style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.2em', textDecoration: 'none' }}>
+            起盘 →
+          </Link>
+        </div>
+        <div className="max-w-2xl mx-auto px-6 py-16 text-center">
+          <h1 style={{ fontSize: '32px', fontWeight: 700, color: 'var(--tx-0)', letterSpacing: '0.15em', marginBottom: '16px' }}>
+            {star}星
+          </h1>
+          <p style={{ fontSize: '15px', color: 'var(--tx-1)', lineHeight: 1.9, marginBottom: '28px' }}>
+            {STAR_BRIEF_SEO[star] || `${star}为紫微斗数十四主星之一。`}
+          </p>
+          <div
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid rgba(184,146,42,0.2)',
+              borderRadius: '12px',
+              padding: '20px 24px',
+              fontSize: '13px',
+              color: 'var(--tx-2)',
+              lineHeight: 1.8,
+              marginBottom: '28px',
+            }}
+          >
+            当前为开源静态排盘版，商业版 14 主星 × 13 宫位详细断语库（<code>STAR_DB</code>）不在开源范围内。你可以直接使用免费排盘引擎或阅读古籍原文。
+          </div>
+          <div className="flex justify-center gap-4">
+            <Link
+              href="/chart"
+              style={{
+                padding: '10px 22px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #d4a948 0%, #b8922a 100%)',
+                color: '#fff',
+                fontSize: '13px',
+                textDecoration: 'none',
+              }}
+            >
+              前往排盘
+            </Link>
+            <Link
+              href="/library"
+              style={{
+                padding: '10px 22px',
+                borderRadius: '8px',
+                border: '1px solid rgba(184,146,42,0.35)',
+                color: 'var(--ac)',
+                fontSize: '13px',
+                textDecoration: 'none',
+              }}
+            >
+              阅读古籍
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // 同主星其他 topic
   const otherTopicsForStar = ALL_TOPICS.filter(t => t !== topic && getKnowledge(star, t).exists);
