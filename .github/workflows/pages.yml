@@ -1,8 +1,7 @@
 name: Deploy to GitHub Pages
 
+# 已改用 Vercel 部署完整 Next.js 服务端（含 /api/*），此处仅保留手动触发的纯静态导出
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -37,7 +36,9 @@ jobs:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
           NEXT_PUBLIC_SITE_URL: ${{ steps.pages.outputs.origin }}${{ steps.pages.outputs.base_path }}
-        run: npm run build
+        run: |
+          rm -rf app/api
+          npm run build
 
       - name: 上传 Pages 构建产物
         uses: actions/upload-pages-artifact@v3
