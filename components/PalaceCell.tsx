@@ -17,6 +17,7 @@ interface PalaceCellProps {
   onStarClick?: (star: Star) => void;
   isSelected?: boolean;
   isSanFang?: boolean;
+  isActiveDaXian?: boolean;
   delay?: number;
   /** 叠加四化：星名 → 四化类型（'禄'/'权'/'科'/'忌'） */
   overlayStarSiHua?: Record<string, string>;
@@ -26,11 +27,11 @@ interface PalaceCellProps {
   onSiHuaClick?: (starName: string, siHua: string) => void;
 }
 
-const SIHUA_STYLES: Record<string, string> = {
-  '禄': 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-  '权': 'text-blue-400 bg-blue-500/10 border-blue-500/30',
-  '科': 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
-  '忌': 'text-red-400 bg-red-500/10 border-red-500/30',
+const SIHUA_CLASS: Record<string, string> = {
+  '禄': 'badge-lu',
+  '权': 'badge-quan',
+  '科': 'badge-ke',
+  '忌': 'badge-ji',
 };
 
 const SiHuaBadge = ({
@@ -47,25 +48,26 @@ const SiHuaBadge = ({
   return (
     <span
       className={clsx(
-        'inline-flex items-center text-[8px] px-1 rounded-full border leading-none py-px font-bold ml-1 flex-shrink-0',
-        SIHUA_STYLES[siHua],
-        overlay && 'border-dashed opacity-80',
+        'inline-flex items-center text-[9px] px-1 rounded border leading-none py-px font-bold ml-1 shrink-0 font-mono-num',
+        SIHUA_CLASS[siHua],
+        overlay && 'border-dashed opacity-90',
         onClick && 'cursor-pointer hover:opacity-100',
       )}
       onClick={onClick}
     >
-      {overlay && label && <span className="mr-px opacity-70">{label}</span>}
+      {overlay && label && <span className="mr-px opacity-75">{label}</span>}
       {siHua}
     </span>
   );
 };
 
 export default function PalaceCell({
-  palace, onClick, onStarClick, isSelected, isSanFang, delay = 0,
+  palace, onClick, onStarClick, isSelected, isSanFang, isActiveDaXian, delay = 0,
   overlayStarSiHua, overlayLabel, onSiHuaClick, shierShen,
 }: PalaceCellProps) {
   const { branch, stem, name, stars, daXianAge, isCurrentDaXian, isMingGong, isShenGong } = palace;
   const ganzhi = `${STEMS[stem]}${BRANCHES[branch]}`;
+  const highlightDaXian = isActiveDaXian ?? isCurrentDaXian;
 
   const majorStars = stars.filter(s => s.type === 'major');
   const luckyStars = stars.filter(s => s.type === 'lucky');
@@ -74,80 +76,117 @@ export default function PalaceCell({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
+      initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.35, delay, ease: 'easeOut' }}
+      transition={{ duration: 0.28, delay, ease: [0.22, 1, 0.36, 1] }}
       onClick={onClick}
-      className="relative flex flex-col p-1.5 cursor-pointer transition-all duration-200 h-full"
+      className="palace-cell relative flex flex-col p-2 cursor-pointer transition-colors duration-200 h-full"
       style={{
-        minHeight: '90px',
-        background: isCurrentDaXian
-          ? 'rgba(147,51,234,0.08)'
-          : isSelected
-          ? 'rgba(37,99,235,0.18)'
+        minHeight: '112px',
+        background: isSelected
+          ? 'color-mix(in srgb, var(--ac) 16%, var(--bg-0))'
           : isSanFang
-          ? 'rgba(37,99,235,0.09)'
+          ? 'color-mix(in srgb, var(--ac) 8%, var(--bg-0))'
+          : highlightDaXian
+          ? 'color-mix(in srgb, var(--quan) 7%, var(--bg-0))'
           : isMingGong
-          ? 'rgba(212,168,67,0.04)'
-          : 'var(--t-bg)',
-        boxShadow: isCurrentDaXian
-          ? 'inset 3px 0 0 rgba(147,51,234,0.5)'
-          : isSelected
-          ? 'inset 0 0 0 1.5px rgba(37,99,235,0.7)'
+          ? 'color-mix(in srgb, var(--ac) 5%, var(--bg-0))'
+          : 'var(--bg-0)',
+        boxShadow: isSelected
+          ? 'inset 0 0 0 1.5px var(--ac)'
           : isSanFang
-          ? 'inset 0 0 0 1px rgba(37,99,235,0.4)'
+          ? 'inset 0 0 0 1px var(--ac-bdr)'
+          : highlightDaXian
+          ? 'inset 0 1.5px 0 0 var(--quan)'
           : 'none',
       }}
     >
-      {/* 大限年龄 */}
+      {/* 大限年龄（右上角） */}
       {daXianAge && (
-        <div className={clsx(
-          'absolute top-1 right-1 text-[9px] font-mono tabular-nums',
-          isCurrentDaXian ? 'text-purple-400' : ''
-        )}
-          style={!isCurrentDaXian ? { color: 'var(--t-faint)', opacity: 0.75 } : undefined}
+        <div
+          className="absolute top-1.5 right-1.5 text-[10px] font-mono-num flex items-center gap-1"
+          style={{ color: highlightDaXian ? 'var(--quan)' : 'var(--tx-3)' }}
         >
-          {daXianAge[0]}–{daXianAge[1]}
+          {highlightDaXian && (
+            <span
+              className="text-[8px] px-1 rounded leading-tight font-medium"
+              style={{
+                border: '1px solid color-mix(in srgb, var(--quan) 45%, transparent)',
+                background: 'color-mix(in srgb, var(--quan) 12%, transparent)',
+              }}
+            >
+              限
+            </span>
+          )}
+          <span>{daXianAge[0]}–{daXianAge[1]}</span>
         </div>
       )}
 
-      {/* 宫名行 */}
-      <div className="flex items-center gap-1 mb-0.5 pr-8">
-        <span className={clsx('text-[10px] font-medium tracking-wide',
-          isMingGong ? 'text-amber-500' : isShenGong ? 'text-sky-500' : ''
-        )}
-          style={!isMingGong && !isShenGong ? { color: 'var(--t-faint)' } : undefined}
+      {/* 宫名行 + 命身古铜方印 */}
+      <div className="palace-cell-name flex items-center gap-1 mb-0.5 pr-12">
+        <span
+          className="text-[11px] font-semibold tracking-wide"
+          style={{
+            color: isMingGong ? 'var(--ac)' : isShenGong ? 'var(--ke)' : 'var(--tx-2)',
+          }}
         >
           {name}
         </span>
         {isMingGong && (
-          <span className="text-[7px] text-amber-500/80 border border-amber-500/30 px-0.5 rounded leading-tight">命</span>
+          <span
+            className="text-[8px] px-1 rounded leading-tight font-semibold"
+            style={{
+              color: 'var(--ac)',
+              border: '1px solid var(--ac-bdr)',
+              background: 'var(--ac-bg)',
+            }}
+          >
+            命
+          </span>
         )}
         {isShenGong && (
-          <span className="text-[7px] text-sky-500/80 border border-sky-500/30 px-0.5 rounded leading-tight">身</span>
+          <span
+            className="text-[8px] px-1 rounded leading-tight font-semibold"
+            style={{
+              color: 'var(--ke)',
+              border: '1px solid color-mix(in srgb, var(--ke) 38%, transparent)',
+              background: 'color-mix(in srgb, var(--ke) 10%, transparent)',
+            }}
+          >
+            身
+          </span>
         )}
       </div>
 
       {/* 干支 */}
-      <div className="text-[9px] font-mono mb-1" style={{ color: 'var(--t-faint)', opacity: 0.75 }}>{ganzhi}</div>
+      <div className="text-[10px] font-mono-num mb-1" style={{ color: 'var(--tx-3)' }}>
+        {ganzhi}
+      </div>
 
       {/* 主星 */}
       <div className="flex flex-col gap-0.5 flex-1">
         {majorStars.length === 0 && (
-          <span className="text-[10px] italic" style={{ color: 'var(--t-faint)', opacity: 0.6 }}>空宫</span>
+          <span className="text-[11px] italic" style={{ color: 'var(--tx-3)' }}>空宫</span>
         )}
         {majorStars.map((star) => {
           const overlaySiHua = overlayStarSiHua?.[star.name];
           return (
             <div
               key={star.name}
-              className="flex items-center"
+              className="flex items-center flex-wrap"
               onClick={e => { e.stopPropagation(); onStarClick?.(star); }}
             >
-              <span className={clsx(
-                'text-[13px] leading-tight font-bold tracking-tight cursor-pointer hover:brightness-125 transition-all',
-                star.brightness === 'bright' ? 'text-amber-300' : star.brightness === 'dim' ? 'text-amber-700/80' : 'text-amber-500',
-              )}>
+              <span
+                className="font-serif-cn text-[14px] leading-tight font-bold tracking-tight cursor-pointer hover:underline"
+                style={{
+                  color:
+                    star.brightness === 'bright'
+                      ? 'var(--ac-dim)'
+                      : star.brightness === 'dim'
+                      ? 'var(--tx-2)'
+                      : 'var(--ac)',
+                }}
+              >
                 {star.name}
               </span>
               {star.siHua && <SiHuaBadge siHua={star.siHua} />}
@@ -169,11 +208,15 @@ export default function PalaceCell({
 
       {/* 吉星 */}
       {luckyStars.length > 0 && (
-        <div className="flex flex-wrap gap-x-1 mt-0.5">
+        <div className="flex flex-wrap gap-x-1.5 mt-1">
           {luckyStars.map(s => {
             const overlaySiHua = overlayStarSiHua?.[s.name];
             return (
-              <span key={s.name} className="inline-flex items-center text-[9px] text-sky-500/70 leading-tight">
+              <span
+                key={s.name}
+                className="inline-flex items-center text-[10px] leading-tight"
+                style={{ color: 'var(--ke)' }}
+              >
                 {s.name}
                 {s.siHua && <SiHuaBadge siHua={s.siHua} />}
                 {overlaySiHua && (
@@ -195,38 +238,39 @@ export default function PalaceCell({
 
       {/* 煞星 */}
       {shaStars.length > 0 && (
-        <div className="flex flex-wrap gap-x-1">
+        <div className="flex flex-wrap gap-x-1.5">
           {shaStars.map(s => (
-            <span key={s.name} className="text-[9px] text-red-500/60 leading-tight">
+            <span
+              key={s.name}
+              className="text-[10px] leading-tight"
+              style={{ color: 'var(--ji)' }}
+            >
               {s.name}{s.siHua && <SiHuaBadge siHua={s.siHua} />}
             </span>
           ))}
         </div>
       )}
 
-      {/* 杂曜 */}
+      {/* 杂曜（严格保留 name[brightnessRaw] 与四化渲染供回归测试断言） */}
       {minorStars.length > 0 && (
-        <div className="flex flex-wrap gap-x-1">
+        <div className="flex flex-wrap gap-x-1.5">
           {minorStars.map(s => (
-            <span key={s.name} className="text-[9px] leading-tight" style={{ color: 'var(--t-faint)', opacity: 0.75 }}>
+            <span key={s.name} className="text-[10px] leading-tight" style={{ color: 'var(--tx-3)' }}>
               {s.name}{s.brightnessRaw ? `[${s.brightnessRaw}]` : ''}{s.siHua && <SiHuaBadge siHua={s.siHua} />}
             </span>
           ))}
         </div>
       )}
 
-      {/* 宫底左下角竖排：博士、将前、岁前；三组数据均由 ChartBoard 按当前视图计算。 */}
+      {/* 宫底左下角竖排：博士、将前、岁前（严格连续 <span>，确保回归正则匹配） */}
       {shierShen && (
         <div
-          className="flex flex-col items-start mt-1 pt-0.5 text-[8px] leading-tight"
-          style={{ borderTop: '1px dashed var(--t-border)', color: 'var(--t-faint)' }}
+          className="flex flex-col items-start mt-1.5 pt-1 text-[9px] leading-tight"
+          style={{ borderTop: '1px dashed var(--bdr)', color: 'var(--tx-3)' }}
         >
-          <span data-shier-shen="boshi" className="text-violet-500/70">{shierShen.boshi}</span>
-          <span data-shier-shen="jiangQian">{shierShen.jiangQian}</span>
-          <span data-shier-shen="suiQian">{shierShen.suiQian}</span>
+          <span data-shier-shen="boshi" style={{ color: 'var(--ac)' }}>{shierShen.boshi}</span><span data-shier-shen="jiangQian">{shierShen.jiangQian}</span><span data-shier-shen="suiQian">{shierShen.suiQian}</span>
         </div>
       )}
-
     </motion.div>
   );
 }

@@ -153,8 +153,8 @@ function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
         const sectionMatch = line.match(/^\*\*【(.+?)】\*\*$/);
         if (sectionMatch) {
           return (
-            <div key={i} className="pt-3 pb-0.5 first:pt-0">
-              <span className="text-[11px] font-semibold tracking-wide" style={{ color: 'var(--t-gold)' }}>
+            <div key={i} className="pt-3 pb-1 first:pt-0">
+              <span className="font-serif-cn text-xs font-semibold tracking-wide" style={{ color: 'var(--ac)' }}>
                 【{sectionMatch[1]}】
               </span>
             </div>
@@ -163,11 +163,11 @@ function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
         if (line.trim() === '') return <div key={i} className="h-1" />;
         const parts = line.split(/\*\*(.+?)\*\*/);
         return (
-          <div key={i} className="text-[11px] leading-relaxed" style={{ color: 'var(--t-text2)' }}>
+          <div key={i} className="text-xs leading-relaxed" style={{ color: 'var(--tx-2)' }}>
             {parts.map((part, j) =>
               j % 2 === 0
                 ? part
-                : <strong key={j} className="font-medium" style={{ color: 'var(--t-text)' }}>{part}</strong>
+                : <strong key={j} className="font-semibold" style={{ color: 'var(--tx-0)' }}>{part}</strong>
             )}
           </div>
         );

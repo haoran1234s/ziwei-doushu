@@ -1,7 +1,3 @@
-/**
- * /library/[book] — 单部古籍目录页
- */
-
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ALL_BOOKS, getBookBySlug } from '@/lib/classics';
@@ -26,72 +22,68 @@ export default async function BookPage({ params }: { params: Promise<{ book: str
   if (!book) notFound();
 
   return (
-    <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
-      <div className="px-6 py-4 flex items-center justify-between"
-        style={{ borderBottom: '1px solid rgba(184,146,42,0.15)', background: 'var(--bg-page)' }}>
-        <Link href="/library" style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.3em', textDecoration: 'none' }}>
-          ← 古籍库
-        </Link>
-        <div style={{ fontSize: '12px', color: 'var(--tx-3)', letterSpacing: '0.2em' }}>
-          《{book.title}》
-        </div>
-        <Link href="/" style={{ fontSize: '12px', color: 'var(--ac)', letterSpacing: '0.2em', textDecoration: 'none' }}>
-          首页 →
-        </Link>
-      </div>
+    <div style={{ background: 'var(--bg-0)', minHeight: '100vh' }}>
+      <div className="container-page max-w-3xl py-10 sm:py-12 pb-20">
+        {/* 面包屑 */}
+        <nav className="flex items-center gap-2 text-xs mb-8" style={{ color: 'var(--tx-3)' }}>
+          <Link href="/library" className="no-underline" style={{ color: 'var(--ac)' }}>
+            ← 古籍原典库
+          </Link>
+          <span>/</span>
+          <span style={{ color: 'var(--tx-1)' }}>《{book.title}》</span>
+        </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-12">
         {/* 书名信息 */}
-        <div className="text-center mb-12">
-          <div style={{ fontSize: '11px', color: 'var(--tx-3)', letterSpacing: '0.3em', marginBottom: '8px' }}>
+        <div className="text-center mb-10">
+          <div className="label-section mb-2">
             {book.dynasty} · {book.author}
           </div>
-          <h1 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, color: 'var(--tx-0)', letterSpacing: '0.15em', marginBottom: '14px' }}>
+          <h1
+            className="font-serif-cn font-bold tracking-[0.14em] mb-4"
+            style={{ fontSize: 'clamp(28px, 4vw, 42px)', color: 'var(--tx-0)' }}
+          >
             《{book.title}》
           </h1>
-          <p style={{ fontSize: '13px', color: 'var(--tx-2)', lineHeight: 1.8, maxWidth: '500px', margin: '0 auto' }}>
+          <p className="text-sm leading-relaxed max-w-lg mx-auto" style={{ color: 'var(--tx-2)' }}>
             {book.intro}
           </p>
         </div>
 
         {/* 章节目录 */}
-        <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid rgba(184,146,42,0.2)', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(184,146,42,0.15)', fontSize: '11px', color: 'var(--tx-3)', letterSpacing: '0.3em' }}>
-            CHAPTERS · 章节目录
+        <div className="card-glass rounded-2xl overflow-hidden" style={{ border: '1px solid var(--bdr-med)' }}>
+          <div
+            className="px-5 py-3.5 label-section"
+            style={{ borderBottom: '1px solid var(--bdr)', background: 'var(--bg-1)' }}
+          >
+            CHAPTERS · 章节目录（共 {book.chapters.length} 章）
           </div>
           {book.chapters.map((chapter, i) => (
             <Link
               key={i}
               href={`/library/${book.slug}/${i}`}
+              className="flex items-baseline gap-4 px-5 py-4 no-underline transition-colors hover:bg-[var(--ac-bg)]"
               style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: '14px',
-                padding: '14px 20px',
-                borderBottom: i === book.chapters.length - 1 ? 'none' : '1px dashed rgba(184,146,42,0.15)',
-                textDecoration: 'none',
+                borderBottom: i === book.chapters.length - 1 ? 'none' : '1px dashed var(--bdr)',
                 color: 'inherit',
-                transition: 'background 0.15s',
               }}
-              className="hover:bg-amber-50"
             >
-              <div style={{ fontSize: '12px', color: 'var(--ac)', fontWeight: 600, minWidth: '40px', letterSpacing: '0.1em' }}>
+              <div className="font-mono-num text-xs font-semibold min-w-[36px]" style={{ color: 'var(--ac)' }}>
                 {String(i + 1).padStart(2, '0')}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '15px', color: 'var(--tx-0)', fontWeight: 500, letterSpacing: '0.08em', marginBottom: '2px' }}>
+              <div className="flex-1 min-w-0">
+                <div className="font-serif-cn text-base font-medium tracking-[0.06em]" style={{ color: 'var(--tx-0)' }}>
                   {chapter.title}
                 </div>
                 {chapter.subtitle && (
-                  <div style={{ fontSize: '11px', color: 'var(--tx-3)' }}>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--tx-3)' }}>
                     {chapter.subtitle}
                   </div>
                 )}
               </div>
-              <div style={{ fontSize: '10px', color: 'var(--tx-3)', letterSpacing: '0.1em' }}>
+              <div className="text-xs font-mono-num" style={{ color: 'var(--tx-3)' }}>
                 {chapter.paragraphs.length} 段
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--ac)' }}>→</div>
+              <div className="text-xs" style={{ color: 'var(--ac)' }}>→</div>
             </Link>
           ))}
         </div>

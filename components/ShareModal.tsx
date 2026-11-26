@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ZiweiChart } from '@/lib/ziwei/types';
-import ShareCardCanvas, { captureShareCard, downloadDataURL } from './ShareCardCanvas';
+import ShareCardCanvas, { captureShareCard, downloadDataURL, type ShareCardVariant } from './ShareCardCanvas';
 
 interface ShareModalProps {
   open: boolean;
@@ -17,6 +17,8 @@ interface ShareModalProps {
 export default function ShareModal({ open, onClose, shareUrl, chart, birth, highlight }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [variant, setVariant] = useState<ShareCardVariant>('observatory');
+  const [hideName, setHideName] = useState(false);
 
   const copyLink = async () => {
     try {
@@ -43,7 +45,7 @@ export default function ShareModal({ open, onClose, shareUrl, chart, birth, high
         alert('图片生成失败，请截图保存或刷新重试');
         return;
       }
-      downloadDataURL(dataURL, `紫微命盘_${Date.now()}.png`);
+      downloadDataURL(dataURL, `紫微命盘_${variant}_${Date.now()}.png`);
     } finally {
       setDownloading(false);
     }
@@ -55,90 +57,106 @@ export default function ShareModal({ open, onClose, shareUrl, chart, birth, high
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+          className="fixed inset-0 z-[115] flex items-center justify-center p-4"
+          style={{ background: 'rgba(4, 7, 13, 0.72)', backdropFilter: 'blur(8px)' }}
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
             onClick={e => e.stopPropagation()}
-            className="rounded-2xl overflow-hidden"
+            className="rounded-2xl overflow-hidden card-glass"
             style={{
-              background: 'white',
-              maxWidth: '680px',
+              maxWidth: '740px',
               width: '100%',
               maxHeight: '92vh',
               overflowY: 'auto',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
+              border: '1px solid var(--bdr-heavy)',
             }}
           >
-            {/* 顶部标题 */}
-            <div style={{
-              padding: '14px 18px',
-              borderBottom: '1px solid rgba(184,146,42,0.15)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#3d2f10', letterSpacing: '0.12em' }}>
-                ✦ 分享命盘
+            {/* 顶部标题 + 模板/隐私控制 */}
+            <div
+              className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3"
+              style={{ borderBottom: '1px solid var(--bdr)' }}
+            >
+              <div className="font-serif-cn text-sm font-semibold tracking-[0.14em]" style={{ color: 'var(--tx-0)' }}>
+                ✦ 命盘典藏海报卡
               </div>
-              <button onClick={onClose}
-                style={{
-                  width: '28px', height: '28px', borderRadius: '50%', border: 'none',
-                  background: 'rgba(0,0,0,0.05)', color: '#666', fontSize: '16px',
-                  cursor: 'pointer', lineHeight: 1,
-                }}
-              >×</button>
+
+              <div className="flex items-center gap-3 ml-auto">
+                <div className="tab-container">
+                  <button
+                    type="button"
+                    onClick={() => setVariant('observatory')}
+                    className={`tab-item text-xs py-1 px-2.5 ${variant === 'observatory' ? 'active' : ''}`}
+                  >
+                    深空金箔版
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVariant('parchment')}
+                    className={`tab-item text-xs py-1 px-2.5 ${variant === 'parchment' ? 'active' : ''}`}
+                  >
+                    素笺印章版
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--tx-2)' }}>
+                  <input
+                    type="checkbox"
+                    checked={hideName}
+                    onChange={e => setHideName(e.target.checked)}
+                    style={{ accentColor: 'var(--ac)' }}
+                  />
+                  隐藏姓名
+                </label>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
+                  style={{ background: 'var(--bg-1)', border: '1px solid var(--bdr-med)', color: 'var(--tx-2)' }}
+                  aria-label="关闭分享弹窗"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
-            {/* 卡片图预览（实际渲染） */}
-            <div style={{ padding: '20px', background: '#fbf6e8', display: 'flex', justifyContent: 'center', overflowX: 'auto' }}>
+            {/* 预览 */}
+            <div className="p-5 flex justify-center overflow-x-auto" style={{ background: 'var(--bg-1)' }}>
               {chart && (
-                <ShareCardCanvas chart={chart} birth={birth} highlight={highlight} />
+                <ShareCardCanvas
+                  chart={chart}
+                  birth={birth}
+                  highlight={highlight}
+                  variant={variant}
+                  hideName={hideName}
+                />
               )}
             </div>
 
-            <div style={{ padding: '0 20px 12px', textAlign: 'center', fontSize: '11px', color: '#a89b7c', letterSpacing: '0.05em' }}>
-              ↑ 朋友圈 / 微信 / 抖音 / 小红书 都能用
-            </div>
-
             {/* 操作区 */}
-            <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button onClick={downloadImage} disabled={downloading}
-                style={{
-                  padding: '14px', borderRadius: '10px', border: 'none',
-                  background: 'linear-gradient(135deg, #d4a948 0%, #b8922a 100%)',
-                  color: 'white', fontSize: '14px', fontWeight: 600, letterSpacing: '0.15em',
-                  cursor: downloading ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 12px rgba(184,146,42,0.3)',
-                  opacity: downloading ? 0.7 : 1,
-                }}
+            <div className="p-5 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={downloadImage}
+                disabled={downloading}
+                className="btn-primary flex-1"
+                style={{ opacity: downloading ? 0.65 : 1 }}
               >
-                {downloading ? '生成中…' : '⬇ 下载分享图'}
+                {downloading ? '正在渲染高清藏书卡…' : '⬇ 保存高清藏书海报 PNG'}
               </button>
 
-              <button onClick={copyLink}
-                style={{
-                  padding: '14px', borderRadius: '10px',
-                  border: '1px solid rgba(184,146,42,0.4)', background: 'white',
-                  color: '#b8922a', fontSize: '14px', fontWeight: 500, letterSpacing: '0.12em',
-                  cursor: 'pointer',
-                }}
+              <button
+                type="button"
+                onClick={copyLink}
+                className="btn-ghost flex-1"
               >
-                {copied ? '✓ 已复制链接' : '🔗 复制命盘链接'}
+                {copied ? '✓ 已复制命盘链接' : '复制本页链接'}
               </button>
-
-              <div style={{
-                fontSize: '11px', color: '#a89b7c', lineHeight: 1.7,
-                padding: '10px 12px', background: 'rgba(184,146,42,0.05)',
-                borderRadius: '8px', marginTop: '4px',
-              }}>
-                <div style={{ marginBottom: '4px', fontWeight: 600, color: '#8b6a14' }}>使用提示：</div>
-                · 下载图片可发朋友圈 / 抖音 / 小红书<br />
-                · 复制链接发给微信好友，对方点开看自己的盘起点
-              </div>
             </div>
           </motion.div>
         </motion.div>

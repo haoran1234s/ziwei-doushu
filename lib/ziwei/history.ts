@@ -1,64 +1,73 @@
-import { useEffect, useState, useCallback } from 'react';
+'use client';
+
 import type { BirthFormState } from '@/components/BirthForm';
 
-const STORAGE_KEY = 'ziwei_history';
-const MAX_ENTRIES = 10;
-
-export interface HistoryEntry {
+export interface ChartHistoryItem {
   id: string;
   label: string;
+  createdAt: number;
   form: BirthFormState;
-  savedAt: number;
 }
 
-export function useHistory() {
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+const STORAGE_KEY = 'ziwei-chart-history-v1';
+const MAX_ITEMS = 8;
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setHistory(JSON.parse(raw));
-    } catch { /* localStorage 不可用时静默失败 */ }
-  }, []);
+/** 读取本地历史起盘档案（SSR 安全） */
+export function loadChartHistory(): ChartHistoryItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
-  const save = useCallback((form: BirthFormState) => {
-    const label = [
-      form.name,
-      `${form.year}年${form.month}月${form.day}日`,
-      form.city || form.province || '',
-      form.gender === 'male' ? '男' : '女',
-    ].filter(Boolean).join(' · ');
+/** 保存一次起盘档案到本地历史记录，按姓名+生辰去重并置顶 */
+export function saveChartHistory(form: BirthFormState): ChartHistoryItem[] {
+  if (typeof window === 'undefined') return [];
+  if (!form.year || !form.month || !form.day) return loadChartHistory();
 
-    const entry: HistoryEntry = {
-      id: Date.now().toString(),
-      label,
-      form,
-      savedAt: Date.now(),
-    };
+  const labelName = form.name?.trim() || (form.gender === 'male' ? '男命' : '女命');
+  const labelTime = form.unknownTime
+    ? '时辰不详'
+    : `${form.clockHour.padStart(2, '0')}:${form.clockMinute.padStart(2, '0')}`;
+  const label = `${labelName} · ${form.year}.${form.month}.${form.day} ${labelTime}`;
 
-    setHistory(prev => {
-      // 去重：相同出生年月日+性别+时辰视为同一条记录
-      const deduped = prev.filter(e =>
-        !(e.form.year === form.year &&
-          e.form.month === form.month &&
-          e.form.day === form.day &&
-          e.form.gender === form.gender &&
-          e.form.clockHour === form.clockHour &&
-          e.form.clockMinute === form.clockMinute)
-      );
-      const updated = [entry, ...deduped].slice(0, MAX_ENTRIES);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-  }, []);
+  const id = [
+    form.name?.trim() || '',
+    form.year,
+    form.month,
+    form.day,
+    form.unknownTime ? 'u' : `${form.clockHour}:${form.clockMinute}`,
+    form.gender,
+    form.city || form.province || '',
+  ].join('|');
 
-  const remove = useCallback((id: string) => {
-    setHistory(prev => {
-      const updated = prev.filter(e => e.id !== id);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-  }, []);
+  const existing = loadChartHistory().filter((item) => item.id !== id);
+  const next: ChartHistoryItem[] = [
+    { id, label, createdAt: Date.now(), form },
+    ...existing,
+  ].slice(0, MAX_ITEMS);
 
-  return { history, save, remove };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    /* localStorage 受限时静默跳过 */
+  }
+  return next;
+}
+
+/** 从本地历史记录删除指定条目 */
+export function removeChartHistory(id: string): ChartHistoryItem[] {
+  if (typeof window === 'undefined') return [];
+  const next = loadChartHistory().filter((item) => item.id !== id);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+  return next;
 }
