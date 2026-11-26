@@ -99,105 +99,111 @@ export default function HomePage() {
 
   return (
     <div style={{ background: 'var(--bg-0)', color: 'var(--tx-1)' }}>
-      {/* ══ HERO · 3D 紫微浑天星穹主舞台 ═════════════════════ */}
+      {/* ══ HERO · 3D 紫微浑天星穹主舞台（左右分栏，零重叠） ═════ */}
       <section className="relative min-h-[calc(100vh-56px)] flex items-center overflow-hidden">
-        <HeroArmillary3D />
-
-        {/* 左右景深遮罩，保证文字在任何屏幕都有高对比度 */}
+        {/* 顶部与右侧柔和星穹氛围光晕（纯背景装饰，不遮挡内容） */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'linear-gradient(90deg, var(--bg-0) 0%, color-mix(in srgb, var(--bg-0) 82%, transparent) 46%, transparent 82%)',
+              'radial-gradient(ellipse 65% 70% at 76% 48%, color-mix(in srgb, var(--ac) 10%, transparent), transparent 70%)',
           }}
         />
 
-        <div className="container-page relative z-10 py-16 lg:py-24 w-full">
-          <div className="max-w-2xl">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full mb-7 text-xs font-mono-num"
-              style={{
-                background: 'var(--ac-bg)',
-                border: '1px solid var(--ac-bdr)',
-                color: 'var(--ac)',
-              }}
-            >
-              <span>✦</span>
-              <span>NI HAI XIA · 天纪三合正宗体系</span>
-            </motion.div>
+        <div className="container-page relative z-10 py-12 lg:py-16 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)] gap-10 lg:gap-8 items-center">
+            {/* 左栏：标题、介绍、入口按钮与核心指标 */}
+            <div className="max-w-xl">
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full mb-7 text-xs font-mono-num"
+                style={{
+                  background: 'var(--ac-bg)',
+                  border: '1px solid var(--ac-bdr)',
+                  color: 'var(--ac)',
+                }}
+              >
+                <span>✦</span>
+                <span>NI HAI XIA · 天纪三合正宗体系</span>
+              </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="font-serif-cn font-bold tracking-[0.08em] leading-[1.12] mb-6"
-              style={{
-                fontSize: 'clamp(42px, 6.2vw, 76px)',
-                color: 'var(--tx-0)',
-              }}
-            >
-              观星知命
-              <span className="block mt-1" style={{ color: 'var(--ac)' }}>
-                紫微斗数全仪
-              </span>
-            </motion.h1>
+              <motion.h1
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+                className="font-serif-cn font-bold tracking-[0.08em] leading-[1.12] mb-6"
+                style={{
+                  fontSize: 'clamp(40px, 5.2vw, 70px)',
+                  color: 'var(--tx-0)',
+                }}
+              >
+                观星知命
+                <span className="block mt-1" style={{ color: 'var(--ac)' }}>
+                  紫微斗数全仪
+                </span>
+              </motion.h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.16 }}
-              className="text-base sm:text-lg leading-relaxed mb-9 max-w-xl"
-              style={{ color: 'var(--tx-2)' }}
-            >
-              以经度与均时差精确换算真太阳时，严格依照纳音五行局排盘。
-              内置十二宫飞星轨迹、十年大限推演、3D 紫微天盘仪，以及明刊古籍原典全文互证。
-            </motion.p>
+              <motion.p
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.16 }}
+                className="text-base sm:text-lg leading-relaxed mb-9 max-w-lg"
+                style={{ color: 'var(--tx-2)' }}
+              >
+                以经度与均时差精确换算真太阳时，严格依照纳音五行局排盘。
+                内置十二宫飞星轨迹、十年大限推演、3D 紫微天盘仪，以及明刊古籍原典全文互证。
+              </motion.p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.24 }}
-              className="flex flex-wrap items-center gap-3.5 mb-12"
-            >
-              <Link href="/chart" className="btn-primary">
-                <span>立即免费排盘</span>
-                <span>→</span>
-              </Link>
-              <Link href="/heming" className="btn-ghost">
-                双人合盘共参
-              </Link>
-              <Link href="/library" className="btn-ghost">
-                研读明刊古籍
-              </Link>
-            </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.24 }}
+                className="flex flex-wrap items-center gap-3.5 mb-10"
+              >
+                <Link href="/chart" className="btn-primary">
+                  <span>立即免费排盘</span>
+                  <span>→</span>
+                </Link>
+                <Link href="/heming" className="btn-ghost">
+                  双人合盘共参
+                </Link>
+                <Link href="/library" className="btn-ghost">
+                  研读明刊古籍
+                </Link>
+              </motion.div>
 
-            {/* 精密天文指标条 */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.35 }}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-7"
-              style={{ borderTop: '1px solid var(--bdr)' }}
-            >
-              {[
-                { num: '14 主星', label: '庙旺利陷全分级' },
-                { num: '12 宫格', label: '2D / 3D 双视图' },
-                { num: '3 部典籍', label: '骨髓赋·全集·全书' },
-                { num: 'NOAA 口径', label: '经度+均时差校准' },
-              ].map((stat) => (
-                <div key={stat.num}>
-                  <div className="font-mono-num text-sm font-semibold" style={{ color: 'var(--ac)' }}>
-                    {stat.num}
+              {/* 精密天文指标条 */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.35 }}
+                className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-7"
+                style={{ borderTop: '1px solid var(--bdr)' }}
+              >
+                {[
+                  { num: '14 主星', label: '庙旺利陷全分级' },
+                  { num: '12 宫格', label: '2D / 3D 双视图' },
+                  { num: '3 部典籍', label: '骨髓赋·全集·全书' },
+                  { num: 'NOAA 口径', label: '经度+均时差校准' },
+                ].map((stat) => (
+                  <div key={stat.num}>
+                    <div className="font-mono-num text-sm font-semibold" style={{ color: 'var(--ac)' }}>
+                      {stat.num}
+                    </div>
+                    <div className="text-xs mt-0.5" style={{ color: 'var(--tx-3)' }}>
+                      {stat.label}
+                    </div>
                   </div>
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--tx-3)' }}>
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </motion.div>
+                ))}
+              </motion.div>
+            </div>
+
+            {/* 右栏：独立 3D 紫微浑天铜仪交互舞台 */}
+            <div className="relative w-full h-[380px] sm:h-[460px] lg:h-[580px]">
+              <HeroArmillary3D />
+            </div>
           </div>
         </div>
       </section>
