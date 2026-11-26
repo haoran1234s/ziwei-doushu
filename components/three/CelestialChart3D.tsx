@@ -38,6 +38,23 @@ function branchPosition(branch: number, radius = STAR_RING_R, y = 0): THREE.Vect
   return new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
 }
 
+type ViewportTier = 'desktop' | 'tablet' | 'mobile';
+
+function getCameraPreset(w: number, h: number): {
+  tier: ViewportTier;
+  pos: [number, number, number];
+  badgeScale: [number, number];
+} {
+  const aspect = w / Math.max(h, 1);
+  if (aspect >= 1.15) {
+    return { tier: 'desktop', pos: [0, 8.6, 12.6], badgeScale: [2.05, 0.97] };
+  }
+  if (aspect >= 0.85) {
+    return { tier: 'tablet', pos: [0, 10.0, 14.4], badgeScale: [2.15, 1.01] };
+  }
+  return { tier: 'mobile', pos: [0, 11.4, 16.4], badgeScale: [2.25, 1.06] };
+}
+
 /**
  * `/chart` 排盘页 · 立体紫微天盘仪 (对标 concept_chart_astrolabe.png)
  * - 阶梯黑曜石与拉丝古铜底座 + 360° 游标外环 + 12 宫放射镶金石盘 + 中宫罗盘指针
@@ -76,11 +93,12 @@ export default function CelestialChart3D({
     if (!container) return;
 
     const width = container.clientWidth || 680;
-    const height = container.clientHeight || 540;
+    const height = container.clientHeight || 520;
+    let currentPreset = getCameraPreset(width, height);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
-    camera.position.set(0, 8.8, 12.8);
+    camera.position.set(...currentPreset.pos);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -101,7 +119,7 @@ export default function CelestialChart3D({
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.minDistance = 6.2;
-    controls.maxDistance = 17;
+    controls.maxDistance = 22;
     controls.maxPolarAngle = Math.PI * 0.47;
     controls.minPolarAngle = 0.22;
 
@@ -242,6 +260,7 @@ export default function CelestialChart3D({
     scene.add(dynamicGroup);
 
     const pickTargets: THREE.Object3D[] = [];
+    const badgeSprites: THREE.Sprite[] = [];
     const activeArcUpdaters: Array<(t: number) => void> = [];
     const pillarGeo = new THREE.LatheGeometry(
       [
@@ -282,6 +301,7 @@ export default function CelestialChart3D({
         disposeObject3D(child);
       }
       pickTargets.length = 0;
+      badgeSprites.length = 0;
       activeArcUpdaters.length = 0;
 
       const curSelected = selectedRef.current;
@@ -404,7 +424,7 @@ export default function CelestialChart3D({
           dynamicGroup.add(halo);
         }
 
-        // 高清宫名牌匾
+        // 高清宫名牌匾（关闭 toneMapped 避免 ACES 曝光漂白）
         const starSummary = majors.length > 0 ? majors.map((m) => m.name).join('·') : '空宫';
         const tex = createBadgeTexture(
           `${palace.name}${palace.isMingGong ? ' ★' : ''}`,
@@ -412,13 +432,15 @@ export default function CelestialChart3D({
           { isDark: pal.isDark, highlight: isSel, sanFang: isSF },
         );
         const sprite = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }),
+          new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, toneMapped: false }),
         );
         const labelPos = branchPosition(branch, OUTER_RING_R + 0.82, isSel ? 0.85 : 0.55);
         sprite.position.copy(labelPos);
-        sprite.scale.set(1.95, 0.92, 1);
+        sprite.scale.set(currentPreset.badgeScale[0], currentPreset.badgeScale[1], 1);
+        sprite.renderOrder = 10;
         sprite.userData = { branch };
         dynamicGroup.add(sprite);
+        badgeSprites.push(sprite);
         pickTargets.push(sprite);
       }
 
@@ -510,11 +532,22 @@ export default function CelestialChart3D({
     const onResize = () => {
       if (!container) return;
       const w = container.clientWidth || 680;
-      const h = container.clientHeight || 540;
+      const h = container.clientHeight || 520;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(clampedPixelRatio());
       renderer.setSize(w, h);
+
+      const nextPreset = getCameraPreset(w, h);
+      if (nextPreset.tier !== currentPreset.tier) {
+        currentPreset = nextPreset;
+        camera.position.set(...nextPreset.pos);
+        controls.target.set(0, 0, 0);
+        controls.update();
+        for (const sp of badgeSprites) {
+          sp.scale.set(nextPreset.badgeScale[0], nextPreset.badgeScale[1], 1);
+        }
+      }
     };
     window.addEventListener('resize', onResize);
 
@@ -541,9 +574,15 @@ export default function CelestialChart3D({
     animate();
 
     const resetView = () => {
-      camera.position.set(0, 8.8, 12.8);
+      const w = container.clientWidth || 680;
+      const h = container.clientHeight || 520;
+      currentPreset = getCameraPreset(w, h);
+      camera.position.set(...currentPreset.pos);
       controls.target.set(0, 0, 0);
       controls.update();
+      for (const sp of badgeSprites) {
+        sp.scale.set(currentPreset.badgeScale[0], currentPreset.badgeScale[1], 1);
+      }
     };
     (container as unknown as { __rebuild3D?: () => void; __resetView?: () => void }).__rebuild3D =
       rebuildDynamicOverlays;
@@ -609,9 +648,8 @@ export default function CelestialChart3D({
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden"
+      className="relative rounded-2xl overflow-hidden h-[360px] sm:h-[460px] lg:h-[520px]"
       style={{
-        height: '540px',
         background: 'radial-gradient(circle at 50% 45%, var(--ac-bg) 0%, var(--bg-1) 72%)',
         border: '1px solid var(--bdr-med)',
       }}
@@ -623,27 +661,28 @@ export default function CelestialChart3D({
           const el = containerRef.current as unknown as { __resetView?: () => void } | null;
           el?.__resetView?.();
         }}
-        className="absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-mono-num"
+        className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-mono-num font-medium"
         style={{
-          background: 'color-mix(in srgb, var(--bg-0) 80%, transparent)',
-          border: '1px solid var(--bdr-med)',
-          color: 'var(--tx-1)',
+          background: 'color-mix(in srgb, var(--bg-0) 90%, transparent)',
+          border: '1px solid var(--bdr-heavy)',
+          color: 'var(--tx-0)',
           backdropFilter: 'blur(8px)',
         }}
       >
         复位视角
       </button>
       <div
-        className="absolute bottom-3 left-3 right-3 flex items-center justify-between px-3.5 py-2 rounded-xl text-[11px] pointer-events-none"
+        className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 px-3 py-2 rounded-xl text-[11px] pointer-events-none"
         style={{
-          background: 'color-mix(in srgb, var(--bg-0) 78%, transparent)',
-          border: '1px solid var(--bdr)',
-          color: 'var(--tx-2)',
+          background: 'color-mix(in srgb, var(--bg-0) 88%, transparent)',
+          border: '1px solid var(--bdr-med)',
+          color: 'var(--tx-1)',
           backdropFilter: 'blur(10px)',
         }}
       >
-        <span>拖拽旋转天盘仪 · 滚轮缩放 · 点击任意水晶星柱同步驱动 AI 解读</span>
-        <span className="font-mono-num" style={{ color: 'var(--ac)' }}>
+        <span className="hidden sm:inline">拖拽旋转天盘仪 · 滚轮缩放 · 点击任意水晶星柱同步驱动 AI 解读</span>
+        <span className="sm:hidden">单指旋转 · 双指缩放 · 点宫位看解读</span>
+        <span className="font-mono-num font-medium" style={{ color: 'var(--ac)' }}>
           {selectedBranch !== null ? `${palaceByBranch[selectedBranch]?.name || ''} · 三方四正光束` : '十二宫天盘总览'}
         </span>
       </div>

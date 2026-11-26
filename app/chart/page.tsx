@@ -43,10 +43,10 @@ export default function ChartPage() {
   return (
     <main className="container-page py-5 sm:py-7">
       <div
-        className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-4 mb-5"
         style={{ borderBottom: '1px solid var(--bdr)' }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={() => { setChart(null); setSelectedPalace(null); }}
@@ -54,12 +54,12 @@ export default function ChartPage() {
           >
             ← 重新起盘
           </button>
-          <span className="text-xs font-mono-num" style={{ color: 'var(--tx-2)' }}>
+          <span className="text-xs font-mono-num" style={{ color: 'var(--tx-1)' }}>
             {chart.birthInfo.year}年{chart.birthInfo.month}月{chart.birthInfo.day}日 · {chart.birthInfo.gender === 'male' ? '男命' : '女命'} · {chart.wuxingJuName}
           </span>
         </div>
 
-        <div className="text-[11px] font-mono-num" style={{ color: 'var(--ac)' }}>
+        <div className="text-xs sm:text-[11px] font-mono-num" style={{ color: 'var(--ac)' }}>
           {selectedPalace ? `当前聚焦：${selectedPalace.name}` : '点击任意宫位或星曜深度解读'}
         </div>
       </div>
@@ -68,7 +68,9 @@ export default function ChartPage() {
         <div className="min-w-0">
           <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
         </div>
-        <InsightPanel chart={chart} selectedPalace={selectedPalace} />
+        <div className="min-w-0 lg:sticky lg:top-[72px]">
+          <InsightPanel chart={chart} selectedPalace={selectedPalace} />
+        </div>
       </div>
     </main>
   );

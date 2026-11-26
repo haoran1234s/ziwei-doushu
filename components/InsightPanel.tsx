@@ -148,7 +148,7 @@ const PALACE_ROLES: Record<string, string> = {
 function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
   const lines = text.split('\n');
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       {lines.map((line, i) => {
         const sectionMatch = line.match(/^\*\*【(.+?)】\*\*$/);
         if (sectionMatch) {
@@ -163,7 +163,7 @@ function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
         if (line.trim() === '') return <div key={i} className="h-1" />;
         const parts = line.split(/\*\*(.+?)\*\*/);
         return (
-          <div key={i} className="text-xs leading-relaxed" style={{ color: 'var(--tx-2)' }}>
+          <div key={i} className="text-[13px] leading-6" style={{ color: 'var(--tx-1)' }}>
             {parts.map((part, j) =>
               j % 2 === 0
                 ? part
@@ -350,8 +350,8 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
     <div className="flex flex-col h-[min(44rem,80dvh)] min-h-0 min-w-0 rounded-xl overflow-hidden card-glass">
 
       {/* ── Topic buttons ── */}
-      <div className="flex-shrink-0 px-2 pt-2.5 pb-2" style={{ borderBottom: '1px solid var(--t-border)' }}>
-        <div className="grid grid-cols-6 gap-1">
+      <div className="flex-shrink-0 px-2.5 pt-2.5 pb-2" style={{ borderBottom: '1px solid var(--t-border)' }}>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
           {TOPICS.map(t => {
             const isActive = activeTopic === t.key;
             return (
@@ -359,11 +359,11 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
                 key={t.key}
                 onClick={() => handleTopicClick(t.key)}
                 disabled={loading}
-                className="py-1.5 text-[10px] font-medium rounded-lg transition-all duration-150 disabled:opacity-40"
+                className="py-1.5 text-xs font-medium rounded-lg transition-all duration-150 disabled:opacity-40"
                 style={{
-                  background: isActive ? 'rgba(212,168,67,0.12)' : 'transparent',
-                  border: `1px solid ${isActive ? 'rgba(212,168,67,0.3)' : 'var(--t-border)'}`,
-                  color: isActive ? 'var(--t-gold)' : 'var(--t-faint)',
+                  background: isActive ? 'var(--ac-bg)' : 'transparent',
+                  border: `1px solid ${isActive ? 'var(--ac-bdr)' : 'var(--t-border)'}`,
+                  color: isActive ? 'var(--ac-dim)' : 'var(--tx-2)',
                 }}
               >
                 {t.label}
@@ -442,7 +442,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="继续追问，如：今年适合换工作吗？"
             disabled={loading}
-            className="flex-1 rounded-lg px-3 py-2 text-[11px] focus:outline-none transition-colors"
+            className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm sm:text-xs focus:outline-none transition-colors"
             style={{
               background: 'var(--t-card)',
               border: '1px solid var(--t-border)',
@@ -452,11 +452,11 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
           <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="px-3 py-2 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-3.5 py-2 rounded-lg text-sm sm:text-xs font-medium shrink-0 transition-all disabled:opacity-35 disabled:cursor-not-allowed"
             style={{
-              background: 'rgba(212,168,67,0.15)',
-              border: '1px solid rgba(212,168,67,0.25)',
-              color: 'var(--t-gold)',
+              background: 'var(--ac-bg)',
+              border: '1px solid var(--ac-bdr)',
+              color: 'var(--ac-dim)',
             }}
           >
             {loading ? '…' : '追问'}

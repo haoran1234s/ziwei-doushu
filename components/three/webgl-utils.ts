@@ -126,48 +126,48 @@ export function bindPauseLifecycle(
   };
 }
 
-/** 为 3D 标签牌生成高清 CanvasTexture */
+/** 为 3D 标签牌生成 2x 高清 sRGB CanvasTexture，确保在 ACESFilmicToneMapping 下依然锐利高对比 */
 export function createBadgeTexture(
   title: string,
   subtitle: string,
   options: { isDark: boolean; highlight?: boolean; sanFang?: boolean },
 ): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = 280;
-  canvas.height = 132;
+  canvas.width = 560;
+  canvas.height = 264;
   const ctx = canvas.getContext('2d')!;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const bg = options.highlight
     ? options.isDark
-      ? 'rgba(201, 164, 92, 0.30)'
-      : 'rgba(154, 116, 43, 0.24)'
+      ? 'rgba(42, 32, 16, 0.96)'
+      : '#FFF7E4'
     : options.sanFang
     ? options.isDark
-      ? 'rgba(201, 164, 92, 0.16)'
-      : 'rgba(154, 116, 43, 0.14)'
+      ? 'rgba(26, 31, 44, 0.95)'
+      : '#FFFBF0'
     : options.isDark
-    ? 'rgba(10, 16, 26, 0.86)'
-    : 'rgba(250, 246, 237, 0.94)';
+    ? 'rgba(11, 17, 29, 0.94)'
+    : '#FFFDF9';
 
   const border = options.highlight
     ? options.isDark
-      ? 'rgba(235, 208, 146, 0.95)'
-      : 'rgba(122, 89, 27, 0.95)'
+      ? '#F2D89B'
+      : '#8A5D12'
     : options.sanFang
     ? options.isDark
-      ? 'rgba(201, 164, 92, 0.72)'
-      : 'rgba(154, 116, 43, 0.72)'
+      ? 'rgba(212, 176, 102, 0.85)'
+      : '#9A742B'
     : options.isDark
-    ? 'rgba(201, 164, 92, 0.36)'
-    : 'rgba(90, 72, 40, 0.34)';
+    ? 'rgba(201, 164, 92, 0.52)'
+    : 'rgba(90, 66, 30, 0.58)';
 
-  const r = 18;
-  const w = 260;
-  const h = 112;
-  const x = 10;
-  const y = 10;
+  const r = 28;
+  const w = 528;
+  const h = 232;
+  const x = 16;
+  const y = 16;
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -175,9 +175,20 @@ export function createBadgeTexture(
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+
+  // 底板柔和投影，填充后立即复位阴影避免文字发虚
+  ctx.save();
+  ctx.shadowColor = options.isDark ? 'rgba(0, 0, 0, 0.55)' : 'rgba(42, 30, 12, 0.16)';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 4;
   ctx.fillStyle = bg;
   ctx.fill();
-  ctx.lineWidth = options.highlight ? 3 : 2;
+  ctx.restore();
+
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.lineWidth = options.highlight ? 6 : options.sanFang ? 4.5 : 3.5;
   ctx.strokeStyle = border;
   ctx.stroke();
 
@@ -185,20 +196,24 @@ export function createBadgeTexture(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = options.highlight
     ? options.isDark
-      ? '#FFF6DE'
-      : '#1A1815'
+      ? '#FFF8E6'
+      : '#1A150E'
     : options.isDark
-    ? '#EBD092'
-    : '#7A591B';
-  ctx.font = '600 34px "Noto Serif SC", "Songti SC", serif';
-  ctx.fillText(title, 140, 48);
+    ? '#F0D69A'
+    : '#231B11';
+  ctx.font = '700 62px "Noto Serif SC", "Songti SC", "PingFang SC", serif';
+  ctx.fillText(title, 280, 96, 488);
 
-  ctx.fillStyle = options.isDark ? '#B2BDCE' : '#585146';
-  ctx.font = '500 22px "Inter", "PingFang SC", sans-serif';
-  ctx.fillText(subtitle, 140, 88);
+  ctx.fillStyle = options.isDark ? '#C8D2E2' : '#4A3E2E';
+  ctx.font = '600 42px "Inter", "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.fillText(subtitle, 280, 178, 492);
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.anisotropy = 4;
   texture.needsUpdate = true;
   return texture;
 }

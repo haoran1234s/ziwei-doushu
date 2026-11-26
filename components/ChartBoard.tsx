@@ -15,8 +15,8 @@ const CelestialChart3D = dynamic(() => import('./three/CelestialChart3D'), {
   ssr: false,
   loading: () => (
     <div
-      className="rounded-2xl flex items-center justify-center text-xs font-mono-num"
-      style={{ height: '520px', background: 'var(--bg-1)', border: '1px solid var(--bdr-med)', color: 'var(--tx-3)' }}
+      className="rounded-2xl flex items-center justify-center text-xs font-mono-num h-[360px] sm:h-[460px] lg:h-[520px]"
+      style={{ background: 'var(--bg-1)', border: '1px solid var(--bdr-med)', color: 'var(--tx-2)' }}
     >
       正在点亮 3D 紫微天盘仪…
     </div>
@@ -204,9 +204,9 @@ export default function ChartBoard({ chart, onStarSelect, onPalaceSelect, onSiHu
       />
 
       {/* 观星工作台工具条：2D/3D切换 · 飞星连线 · 格局 · 藏书卡 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-3">
         <div>
-          <span className="text-[10px] font-mono-num tracking-[0.28em] uppercase" style={{ color: 'var(--tx-3)' }}>
+          <span className="text-[10px] font-mono-num tracking-[0.28em] uppercase" style={{ color: 'var(--tx-2)' }}>
             ZIWEI WORKBENCH
           </span>
           <h2 className="font-serif-cn text-base font-semibold tracking-[0.14em]" style={{ color: 'var(--tx-0)' }}>
@@ -474,8 +474,8 @@ export default function ChartBoard({ chart, onStarSelect, onPalaceSelect, onSiHu
             </span>
           ))}
         </div>
-        <span className="text-[11px] font-mono-num" style={{ color: 'var(--tx-3)' }}>
-          点击宫位看三方四正与飞星 · 点击主星看原典详情 · 方向键游走
+        <span className="text-[11px] font-mono-num" style={{ color: 'var(--tx-2)' }}>
+          点击宫位看三方四正与飞星 · 点击主星看原典详情<span className="hidden sm:inline"> · 方向键游走</span>
         </span>
       </div>
 
