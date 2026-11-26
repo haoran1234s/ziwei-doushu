@@ -1,12 +1,21 @@
 'use client';
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { MotionConfig } from 'framer-motion';
 
 export type Theme = 'dark' | 'light';
+
+interface ViewTransitionLike {
+  ready: Promise<void>;
+}
+
+type DocumentWithTransition = Document & {
+  startViewTransition?: (cb: () => void) => ViewTransitionLike;
+};
 
 const ThemeContext = createContext<{
   theme: Theme;
   mounted: boolean;
-  toggle: () => void;
+  toggle: (e?: React.MouseEvent) => void;
 }>({ theme: 'dark', mounted: false, toggle: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -43,16 +52,57 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [theme, mounted]);
 
-  const toggle = () => {
+  const toggle = (e?: React.MouseEvent) => {
     const root = document.documentElement;
+    const nextTheme: Theme = theme === 'dark' ? 'light' : 'dark';
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const doc = document as DocumentWithTransition;
+
+    if (!reduced && typeof doc.startViewTransition === 'function') {
+      const x = e?.clientX ?? window.innerWidth - 56;
+      const y = e?.clientY ?? 28;
+      const maxRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y),
+      );
+      const transition = doc.startViewTransition(() => {
+        root.setAttribute('data-theme', nextTheme);
+        setTheme(nextTheme);
+      });
+      transition.ready
+        .then(() => {
+          document.documentElement.animate(
+            {
+              clipPath: [
+                `circle(0px at ${x}px ${y}px)`,
+                `circle(${maxRadius}px at ${x}px ${y}px)`,
+              ],
+            },
+            {
+              duration: 420,
+              easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+              pseudoElement: '::view-transition-new(root)',
+            },
+          );
+        })
+        .catch(() => {
+          /* ignore */
+        });
+      return;
+    }
+
     root.classList.add('theme-transitioning');
-    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+    setTheme(nextTheme);
     setTimeout(() => root.classList.remove('theme-transitioning'), 420);
   };
 
   return (
     <ThemeContext.Provider value={{ theme, mounted, toggle }}>
-      {children}
+      <MotionConfig reducedMotion="user" transition={{ ease: [0.22, 1, 0.36, 1] }}>
+        {children}
+      </MotionConfig>
     </ThemeContext.Provider>
   );
 }

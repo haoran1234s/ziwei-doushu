@@ -14,6 +14,8 @@ interface ShareModalProps {
   highlight?: string;
 }
 
+const SPRING_SNAPPY = { type: 'spring' as const, stiffness: 420, damping: 32, mass: 0.75 };
+
 export default function ShareModal({ open, onClose, shareUrl, chart, birth, highlight }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -56,7 +58,7 @@ export default function ShareModal({ open, onClose, shareUrl, chart, birth, high
       {open && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.22 }}
           className="fixed inset-0 z-[115] flex items-center justify-center p-4"
           style={{ background: 'rgba(4, 7, 13, 0.72)', backdropFilter: 'blur(8px)' }}
           onClick={onClose}
@@ -64,8 +66,8 @@ export default function ShareModal({ open, onClose, shareUrl, chart, birth, high
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 16 }}
-            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
             onClick={e => e.stopPropagation()}
             className="rounded-2xl overflow-hidden card-glass"
             style={{
@@ -90,16 +92,42 @@ export default function ShareModal({ open, onClose, shareUrl, chart, birth, high
                   <button
                     type="button"
                     onClick={() => setVariant('observatory')}
-                    className={`tab-item text-xs py-1 px-2.5 ${variant === 'observatory' ? 'active' : ''}`}
+                    className="relative tab-item text-xs py-1 px-2.5"
+                    style={{
+                      background: 'transparent',
+                      color: variant === 'observatory' ? 'var(--tx-0)' : 'var(--tx-3)',
+                      fontWeight: variant === 'observatory' ? 600 : 400,
+                    }}
                   >
-                    深空金箔版
+                    {variant === 'observatory' && (
+                      <motion.span
+                        layoutId="share-variant-pill"
+                        transition={SPRING_SNAPPY}
+                        className="absolute inset-0 rounded-[6px] pointer-events-none"
+                        style={{ background: 'var(--bg-card)', boxShadow: 'var(--sh-xs)' }}
+                      />
+                    )}
+                    <span className="relative z-10">深空金箔版</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setVariant('parchment')}
-                    className={`tab-item text-xs py-1 px-2.5 ${variant === 'parchment' ? 'active' : ''}`}
+                    className="relative tab-item text-xs py-1 px-2.5"
+                    style={{
+                      background: 'transparent',
+                      color: variant === 'parchment' ? 'var(--tx-0)' : 'var(--tx-3)',
+                      fontWeight: variant === 'parchment' ? 600 : 400,
+                    }}
                   >
-                    素笺印章版
+                    {variant === 'parchment' && (
+                      <motion.span
+                        layoutId="share-variant-pill"
+                        transition={SPRING_SNAPPY}
+                        className="absolute inset-0 rounded-[6px] pointer-events-none"
+                        style={{ background: 'var(--bg-card)', boxShadow: 'var(--sh-xs)' }}
+                      />
+                    )}
+                    <span className="relative z-10">素笺印章版</span>
                   </button>
                 </div>
 
@@ -113,50 +141,75 @@ export default function ShareModal({ open, onClose, shareUrl, chart, birth, high
                   隐藏姓名
                 </label>
 
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.2 }}
                   onClick={onClose}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-sm hover:border-[var(--ac)]"
                   style={{ background: 'var(--bg-1)', border: '1px solid var(--bdr-med)', color: 'var(--tx-2)' }}
                   aria-label="关闭分享弹窗"
                 >
                   ×
-                </button>
+                </motion.button>
               </div>
             </div>
 
             {/* 预览 */}
             <div className="p-5 flex justify-center overflow-x-auto" style={{ background: 'var(--bg-1)' }}>
               {chart && (
-                <ShareCardCanvas
-                  chart={chart}
-                  birth={birth}
-                  highlight={highlight}
-                  variant={variant}
-                  hideName={hideName}
-                />
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`${variant}-${hideName}`}
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <ShareCardCanvas
+                      chart={chart}
+                      birth={birth}
+                      highlight={highlight}
+                      variant={variant}
+                      hideName={hideName}
+                    />
+                  </motion.div>
+                </AnimatePresence>
               )}
             </div>
 
             {/* 操作区 */}
             <div className="p-5 flex flex-col sm:flex-row gap-3">
-              <button
+              <motion.button
                 type="button"
+                whileTap={downloading ? {} : { scale: 0.98 }}
                 onClick={downloadImage}
                 disabled={downloading}
                 className="btn-primary flex-1"
                 style={{ opacity: downloading ? 0.65 : 1 }}
               >
                 {downloading ? '正在渲染高清藏书卡…' : '⬇ 保存高清藏书海报 PNG'}
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.98 }}
                 onClick={copyLink}
                 className="btn-ghost flex-1"
               >
-                {copied ? '✓ 已复制命盘链接' : '复制本页链接'}
-              </button>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={copied ? 'copied' : 'copy'}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.16 }}
+                  >
+                    {copied ? '✓ 已复制命盘链接' : '复制本页链接'}
+                  </motion.span>
+                </AnimatePresence>
+              </motion.button>
             </div>
           </motion.div>
         </motion.div>

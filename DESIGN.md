@@ -67,3 +67,18 @@
 | `CelestialChart3D` | `/chart` | 3D 十二宫黄道星仪、按星曜亮度分级发光与海拔映射、拖拽阻尼旋转、点击宫位触发 3D 三方四正光束与四化飞星抛物弧 | 按需切换懒加载，点击同步驱动 `InsightPanel` |
 | `HemingResonance3D` | `/heming` | 双星轨交错微倾 3D 共振环，渲染双方互飞四化光弧，AI 解读中轻度加速流转 | 高度 240px 轻画布，共享工具库与内存回收 |
 | `ClassicBook3DCard` | `/library` | Stripe Press 风格典籍封面微 3D 倾斜与 Shader 箔金反光 | 仅作用于书目卡片，正文零 WebGL 干扰 |
+
+---
+
+## 五、全站动效与微交互规范（Motion Choreography）
+
+- **动效原语层（`components/MotionPrimitives.tsx`）**：
+  - 统一指数缓动：`easeOutExpo: [0.16, 1, 0.3, 1]`、`easeOutQuart: [0.22, 1, 0.36, 1]`，配合克制弹簧参数 `springSnappy` / `springGentle`。
+  - 提供 `ObservatoryReveal`、`ObservatoryStagger`、`ObservatoryItem`、`SpotlightCard`、`MagneticButton`、`ReadingProgressBar` 与 `CelestialLoader`，跨客户端与服务端页面统一节奏。
+- **GPU 合成与可访问性底线**：
+  - 仅在 `transform`（`translate` / `scale` / `rotate`）与 `opacity` 上施用过渡动画，严禁 `width`/`height`/`margin`/`padding` 布局重排动画；
+  - `ThemeProvider` 内置 `<MotionConfig reducedMotion="user">`，配合 `globals.css` 中的 `@media (prefers-reduced-motion: reduce)` 自动退化；
+  - 主题切换优先采用 View Transition API 圆形日食扩散转场，降级态回退至 `.theme-transitioning`。
+- **共享 `layoutId` 游标与星仪光轨**：
+  - 顶栏导航、⌘K 速查高亮项、时间维度条、2D/3D 切换、主星选择器、双盘共振格与阅读字号切换统一采用 `layoutId` 滑块；
+  - 排盘宫格选中态以 `motion.line` / `motion.path` `pathLength` 绘制三方四正光束与飞星四化贝塞尔流光弧，并伴随落点光晕涟漪。

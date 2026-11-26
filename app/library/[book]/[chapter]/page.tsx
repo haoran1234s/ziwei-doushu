@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ALL_BOOKS, getChapter } from '@/lib/classics';
 import ClassicReaderBody from '@/components/ClassicReaderBody';
+import { ObservatoryReveal, ReadingProgressBar } from '@/components/MotionPrimitives';
 
 export async function generateStaticParams() {
   return ALL_BOOKS.flatMap(b =>
@@ -30,15 +31,17 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
 
   return (
     <div style={{ background: 'var(--bg-0)', minHeight: '100vh' }}>
+      <ReadingProgressBar />
+
       <article className="container-page max-w-3xl py-10 sm:py-12 pb-20">
         {/* 面包屑 */}
         <nav className="flex items-center justify-between gap-2 text-xs mb-8" style={{ color: 'var(--tx-3)' }}>
           <div className="flex items-center gap-2">
-            <Link href="/library" className="no-underline" style={{ color: 'var(--tx-2)' }}>
+            <Link href="/library" className="no-underline hover:underline" style={{ color: 'var(--tx-2)' }}>
               古籍库
             </Link>
             <span>/</span>
-            <Link href={`/library/${book.slug}`} className="no-underline" style={{ color: 'var(--ac)' }}>
+            <Link href={`/library/${book.slug}`} className="no-underline hover:underline" style={{ color: 'var(--ac)' }}>
               《{book.title}》
             </Link>
           </div>
@@ -48,7 +51,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
         </nav>
 
         {/* 标题 */}
-        <div className="text-center mb-10">
+        <ObservatoryReveal className="text-center mb-10">
           <div className="label-section mb-2">
             《{book.title}》 · {book.dynasty}
           </div>
@@ -63,20 +66,23 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
               {chapter.subtitle}
             </div>
           )}
-        </div>
+        </ObservatoryReveal>
 
         {/* 增强典籍阅读器（字号调节 + 术语浮窗直查） */}
         <ClassicReaderBody paragraphs={chapter.paragraphs} />
 
         {/* 章节上下跳转 */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <ObservatoryReveal delay={0.08} className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {prevIdx >= 0 ? (
             <Link
               href={`/library/${book.slug}/${prevIdx}`}
-              className="card-glass p-4 rounded-xl no-underline transition-colors hover:border-[var(--ac)]"
+              className="group card-glass p-4 rounded-xl no-underline transition-all duration-200 hover:border-[var(--ac)] hover:-translate-y-0.5"
               style={{ color: 'var(--tx-0)' }}
             >
-              <div className="text-[11px] font-mono-num mb-1" style={{ color: 'var(--tx-3)' }}>← 上一章</div>
+              <div className="text-[11px] font-mono-num mb-1 inline-flex items-center gap-1" style={{ color: 'var(--tx-3)' }}>
+                <span className="hover-arrow-left">←</span>
+                <span>上一章</span>
+              </div>
               <div className="font-serif-cn text-sm font-medium">{book.chapters[prevIdx].title}</div>
             </Link>
           ) : <div />}
@@ -84,14 +90,17 @@ export default async function ChapterPage({ params }: { params: Promise<{ book: 
           {nextIdx < book.chapters.length ? (
             <Link
               href={`/library/${book.slug}/${nextIdx}`}
-              className="card-glass p-4 rounded-xl no-underline sm:text-right transition-colors hover:border-[var(--ac)]"
+              className="group card-glass p-4 rounded-xl no-underline sm:text-right transition-all duration-200 hover:border-[var(--ac)] hover:-translate-y-0.5"
               style={{ color: 'var(--tx-0)' }}
             >
-              <div className="text-[11px] font-mono-num mb-1" style={{ color: 'var(--tx-3)' }}>下一章 →</div>
+              <div className="text-[11px] font-mono-num mb-1 inline-flex items-center gap-1" style={{ color: 'var(--tx-3)' }}>
+                <span>下一章</span>
+                <span className="hover-arrow-shift">→</span>
+              </div>
               <div className="font-serif-cn text-sm font-medium">{book.chapters[nextIdx].title}</div>
             </Link>
           ) : <div />}
-        </div>
+        </ObservatoryReveal>
       </article>
     </div>
   );

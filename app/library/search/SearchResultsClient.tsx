@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { searchClassics, getParagraphById } from '@/lib/classics';
+import { MOTION } from '@/components/MotionPrimitives';
 import LibrarySearch from '../LibrarySearch';
 
 export default function SearchResultsClient() {
@@ -14,8 +16,9 @@ export default function SearchResultsClient() {
     <div style={{ background: 'var(--bg-0)', minHeight: '100vh' }}>
       <div className="container-page max-w-3xl py-10 sm:py-12 pb-20">
         <div className="mb-8">
-          <Link href="/library" className="text-xs no-underline" style={{ color: 'var(--ac)' }}>
-            ← 返回古籍原典库
+          <Link href="/library" className="group text-xs no-underline inline-flex items-center gap-1" style={{ color: 'var(--ac)' }}>
+            <span className="hover-arrow-left">←</span>
+            <span>返回古籍原典库</span>
           </Link>
         </div>
 
@@ -23,7 +26,12 @@ export default function SearchResultsClient() {
           <LibrarySearch />
         </div>
 
-        <div className="text-center mb-10">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: MOTION.easeOutExpo }}
+          className="text-center mb-10"
+        >
           <div className="label-section mb-2">CLASSICS SEARCH</div>
           <h1
             className="font-serif-cn font-bold tracking-[0.1em]"
@@ -34,10 +42,13 @@ export default function SearchResultsClient() {
           <div className="text-xs font-mono-num mt-2" style={{ color: 'var(--tx-3)' }}>
             共检出 <strong style={{ color: 'var(--ac)' }}>{hits.length}</strong> 条古籍原文
           </div>
-        </div>
+        </motion.div>
 
         {hits.length === 0 ? (
-          <div
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: MOTION.easeOutExpo }}
             className="card-glass rounded-2xl p-10 text-center"
             style={{ border: '1px solid var(--bdr-med)' }}
           >
@@ -55,30 +66,40 @@ export default function SearchResultsClient() {
                 请在上方搜索框输入主星、格局或术语关键词
               </div>
             )}
-          </div>
+          </motion.div>
         ) : (
           <div className="flex flex-col gap-3">
             {hits.map((hit, i) => {
               const ctx = getParagraphById(hit.paragraphId);
               const chapterIdx = ctx?.chapterIdx ?? 0;
               return (
-                <Link
-                  key={i}
-                  href={`/library/${hit.bookSlug}/${chapterIdx}#${hit.paragraphId}`}
-                  className="card-glass block p-5 rounded-xl no-underline transition-colors hover:border-[var(--ac)]"
-                  style={{ color: 'inherit' }}
+                <motion.div
+                  key={`${hit.paragraphId}-${i}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -2 }}
+                  transition={{ duration: 0.28, delay: Math.min(i * 0.035, 0.36), ease: MOTION.easeOutExpo }}
                 >
-                  <div className="flex items-center gap-2 text-xs mb-2">
-                    <span className="font-semibold" style={{ color: 'var(--ac)' }}>《{hit.bookTitle}》</span>
-                    <span style={{ color: 'var(--tx-3)' }}>·</span>
-                    <span style={{ color: 'var(--tx-2)' }}>{hit.chapterTitle}</span>
-                  </div>
-                  <div
-                    className="font-serif-cn text-sm leading-loose"
-                    style={{ color: 'var(--tx-0)' }}
-                    dangerouslySetInnerHTML={{ __html: hit.snippet }}
-                  />
-                </Link>
+                  <Link
+                    href={`/library/${hit.bookSlug}/${chapterIdx}#${hit.paragraphId}`}
+                    className="group card-glass block p-5 rounded-xl no-underline transition-colors hover:border-[var(--ac)]"
+                    style={{ color: 'inherit' }}
+                  >
+                    <div className="flex items-center justify-between gap-2 text-xs mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold" style={{ color: 'var(--ac)' }}>《{hit.bookTitle}》</span>
+                        <span style={{ color: 'var(--tx-3)' }}>·</span>
+                        <span style={{ color: 'var(--tx-2)' }}>{hit.chapterTitle}</span>
+                      </div>
+                      <span className="hover-arrow-shift text-xs" style={{ color: 'var(--ac)' }}>→</span>
+                    </div>
+                    <div
+                      className="font-serif-cn text-sm leading-loose"
+                      style={{ color: 'var(--tx-0)' }}
+                      dangerouslySetInnerHTML={{ __html: hit.snippet }}
+                    />
+                  </Link>
+                </motion.div>
               );
             })}
           </div>

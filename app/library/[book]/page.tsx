@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ALL_BOOKS, getBookBySlug } from '@/lib/classics';
+import { ObservatoryReveal } from '@/components/MotionPrimitives';
 
 export async function generateStaticParams() {
   return ALL_BOOKS.map(b => ({ book: b.slug }));
@@ -26,15 +27,16 @@ export default async function BookPage({ params }: { params: Promise<{ book: str
       <div className="container-page max-w-3xl py-10 sm:py-12 pb-20">
         {/* 面包屑 */}
         <nav className="flex items-center gap-2 text-xs mb-8" style={{ color: 'var(--tx-3)' }}>
-          <Link href="/library" className="no-underline" style={{ color: 'var(--ac)' }}>
-            ← 古籍原典库
+          <Link href="/library" className="group no-underline inline-flex items-center gap-1" style={{ color: 'var(--ac)' }}>
+            <span className="hover-arrow-left">←</span>
+            <span>古籍原典库</span>
           </Link>
           <span>/</span>
           <span style={{ color: 'var(--tx-1)' }}>《{book.title}》</span>
         </nav>
 
         {/* 书名信息 */}
-        <div className="text-center mb-10">
+        <ObservatoryReveal className="text-center mb-10">
           <div className="label-section mb-2">
             {book.dynasty} · {book.author}
           </div>
@@ -47,46 +49,48 @@ export default async function BookPage({ params }: { params: Promise<{ book: str
           <p className="text-sm leading-relaxed max-w-lg mx-auto" style={{ color: 'var(--tx-2)' }}>
             {book.intro}
           </p>
-        </div>
+        </ObservatoryReveal>
 
         {/* 章节目录 */}
-        <div className="card-glass rounded-2xl overflow-hidden" style={{ border: '1px solid var(--bdr-med)' }}>
-          <div
-            className="px-5 py-3.5 label-section"
-            style={{ borderBottom: '1px solid var(--bdr)', background: 'var(--bg-1)' }}
-          >
-            CHAPTERS · 章节目录（共 {book.chapters.length} 章）
-          </div>
-          {book.chapters.map((chapter, i) => (
-            <Link
-              key={i}
-              href={`/library/${book.slug}/${i}`}
-              className="flex items-baseline gap-4 px-5 py-4 no-underline transition-colors hover:bg-[var(--ac-bg)]"
-              style={{
-                borderBottom: i === book.chapters.length - 1 ? 'none' : '1px dashed var(--bdr)',
-                color: 'inherit',
-              }}
+        <ObservatoryReveal delay={0.08}>
+          <div className="card-glass rounded-2xl overflow-hidden" style={{ border: '1px solid var(--bdr-med)' }}>
+            <div
+              className="px-5 py-3.5 label-section"
+              style={{ borderBottom: '1px solid var(--bdr)', background: 'var(--bg-1)' }}
             >
-              <div className="font-mono-num text-xs font-semibold min-w-[36px]" style={{ color: 'var(--ac)' }}>
-                {String(i + 1).padStart(2, '0')}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-serif-cn text-base font-medium tracking-[0.06em]" style={{ color: 'var(--tx-0)' }}>
-                  {chapter.title}
+              CHAPTERS · 章节目录（共 {book.chapters.length} 章）
+            </div>
+            {book.chapters.map((chapter, i) => (
+              <Link
+                key={i}
+                href={`/library/${book.slug}/${i}`}
+                className="group interactive-row flex items-baseline gap-4 px-5 py-4 no-underline"
+                style={{
+                  borderBottom: i === book.chapters.length - 1 ? 'none' : '1px dashed var(--bdr)',
+                  color: 'inherit',
+                }}
+              >
+                <div className="font-mono-num text-xs font-semibold min-w-[36px]" style={{ color: 'var(--ac)' }}>
+                  {String(i + 1).padStart(2, '0')}
                 </div>
-                {chapter.subtitle && (
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--tx-3)' }}>
-                    {chapter.subtitle}
+                <div className="flex-1 min-w-0">
+                  <div className="font-serif-cn text-base font-medium tracking-[0.06em]" style={{ color: 'var(--tx-0)' }}>
+                    {chapter.title}
                   </div>
-                )}
-              </div>
-              <div className="text-xs font-mono-num" style={{ color: 'var(--tx-3)' }}>
-                {chapter.paragraphs.length} 段
-              </div>
-              <div className="text-xs" style={{ color: 'var(--ac)' }}>→</div>
-            </Link>
-          ))}
-        </div>
+                  {chapter.subtitle && (
+                    <div className="text-xs mt-0.5" style={{ color: 'var(--tx-3)' }}>
+                      {chapter.subtitle}
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs font-mono-num" style={{ color: 'var(--tx-3)' }}>
+                  {chapter.paragraphs.length} 段
+                </div>
+                <div className="hover-arrow-shift text-xs" style={{ color: 'var(--ac)' }}>→</div>
+              </Link>
+            ))}
+          </div>
+        </ObservatoryReveal>
       </div>
     </div>
   );

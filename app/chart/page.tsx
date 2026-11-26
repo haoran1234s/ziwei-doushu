@@ -1,10 +1,13 @@
 'use client';
 import { useState } from 'react';
-import BirthForm from '@/components/BirthForm';
+import { AnimatePresence, motion } from 'framer-motion';
+import BirthForm, { type BirthFormState } from '@/components/BirthForm';
 import ChartBoard from '@/components/ChartBoard';
 import InsightPanel from '@/components/InsightPanel';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import type { BirthInfo, ZiweiChart, Palace } from '@/lib/ziwei/types';
+
+const SHICHEN_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 
 /**
  * 观星阁排盘工作台（/chart）
@@ -13,65 +16,137 @@ import type { BirthInfo, ZiweiChart, Palace } from '@/lib/ziwei/types';
 export default function ChartPage() {
   const [chart, setChart] = useState<ZiweiChart | null>(null);
   const [selectedPalace, setSelectedPalace] = useState<Palace | null>(null);
+  const [lastForm, setLastForm] = useState<BirthFormState | null>(null);
 
-  // ── 未起盘：观星仪式表单页 ──
-  if (!chart) {
-    return (
-      <main className="container-page py-10 sm:py-14">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-8">
-            <div className="label-section mb-2">TRUE SOLAR TIME · OBSERVATORY</div>
-            <h1
-              className="font-serif-cn text-3xl sm:text-4xl font-bold tracking-[0.14em] mb-3"
-              style={{ color: 'var(--tx-0)' }}
-            >
-              紫微斗数排盘
-            </h1>
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
-              严格依循倪海厦《天纪》三合正宗体系，内建经度与均时差真太阳时校准，
-              <br className="hidden sm:block" />
-              即时生成十二宫星曜格局与 3D 紫微天盘仪。
-            </p>
-          </div>
-          <BirthForm onSubmit={(info: BirthInfo) => setChart(generateChart(info))} />
-        </div>
-      </main>
-    );
-  }
+  const shiftShichen = (delta: number) => {
+    if (!chart) return;
+    const nextHour = (chart.birthInfo.hour + delta + 12) % 12;
+    setChart(generateChart({ ...chart.birthInfo, hour: nextHour }));
+    setSelectedPalace(null);
+  };
 
-  // ── 已起盘：左盘右解工作台 ──
   return (
-    <main className="container-page py-5 sm:py-7">
-      <div
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-4 mb-5"
-        style={{ borderBottom: '1px solid var(--bdr)' }}
-      >
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => { setChart(null); setSelectedPalace(null); }}
-            className="btn-ghost py-1.5 px-4 text-xs"
+    <AnimatePresence mode="wait">
+      {!chart ? (
+        <motion.main
+          key="chart-form"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="container-page py-10 sm:py-14"
+        >
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <div className="label-section mb-2">TRUE SOLAR TIME · OBSERVATORY</div>
+              <h1
+                className="font-serif-cn text-3xl sm:text-4xl font-bold tracking-[0.14em] mb-3"
+                style={{ color: 'var(--tx-0)' }}
+              >
+                紫微斗数排盘
+              </h1>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
+                严格依循倪海厦《天纪》三合正宗体系，内建经度与均时差真太阳时校准，
+                <br className="hidden sm:block" />
+                即时生成十二宫星曜格局与 3D 紫微天盘仪。
+              </p>
+            </div>
+            <BirthForm
+              initialData={lastForm ?? undefined}
+              onFormSave={setLastForm}
+              onSubmit={(info: BirthInfo) => setChart(generateChart(info))}
+            />
+          </div>
+        </motion.main>
+      ) : (
+        <motion.main
+          key="chart-workbench"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+          className="container-page py-5 sm:py-7"
+        >
+          <div
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-4 mb-5"
+            style={{ borderBottom: '1px solid var(--bdr)' }}
           >
-            ← 重新起盘
-          </button>
-          <span className="text-xs font-mono-num" style={{ color: 'var(--tx-1)' }}>
-            {chart.birthInfo.year}年{chart.birthInfo.month}月{chart.birthInfo.day}日 · {chart.birthInfo.gender === 'male' ? '男命' : '女命'} · {chart.wuxingJuName}
-          </span>
-        </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { setChart(null); setSelectedPalace(null); }}
+                className="btn-ghost group py-1.5 px-4 text-xs"
+              >
+                <span className="hover-arrow-left">←</span>
+                <span>修改生辰</span>
+              </motion.button>
+              <span className="text-xs font-mono-num" style={{ color: 'var(--tx-1)' }}>
+                {chart.birthInfo.year}年{chart.birthInfo.month}月{chart.birthInfo.day}日 · {SHICHEN_NAMES[chart.birthInfo.hour] ?? ''}时 · {chart.birthInfo.gender === 'male' ? '男命' : '女命'} · {chart.wuxingJuName}
+              </span>
+              <div
+                className="inline-flex items-center rounded-full p-0.5"
+                style={{ background: 'var(--bg-1)', border: '1px solid var(--bdr-med)' }}
+                role="group"
+                aria-label="快捷切换时辰定盘"
+              >
+                <button
+                  type="button"
+                  onClick={() => shiftShichen(-1)}
+                  className="px-2.5 py-1 text-xs rounded-full transition-colors cursor-pointer hover:text-[var(--ac)]"
+                  style={{ color: 'var(--tx-2)' }}
+                  title="切换到上一时辰命盘（定盘对比）"
+                >
+                  ‹ 上一时辰
+                </button>
+                <span className="text-[11px] font-mono-num px-1.5" style={{ color: 'var(--ac)' }}>
+                  {SHICHEN_NAMES[chart.birthInfo.hour] ?? ''}时
+                </span>
+                <button
+                  type="button"
+                  onClick={() => shiftShichen(1)}
+                  className="px-2.5 py-1 text-xs rounded-full transition-colors cursor-pointer hover:text-[var(--ac)]"
+                  style={{ color: 'var(--tx-2)' }}
+                  title="切换到下一时辰命盘（定盘对比）"
+                >
+                  下一时辰 ›
+                </button>
+              </div>
+            </div>
 
-        <div className="text-xs sm:text-[11px] font-mono-num" style={{ color: 'var(--ac)' }}>
-          {selectedPalace ? `当前聚焦：${selectedPalace.name}` : '点击任意宫位或星曜深度解读'}
-        </div>
-      </div>
+            <div className="text-xs sm:text-[11px] font-mono-num overflow-hidden" style={{ color: 'var(--ac)' }}>
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={selectedPalace ? selectedPalace.name : 'idle'}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                  className="inline-block"
+                >
+                  {selectedPalace ? `当前聚焦：${selectedPalace.name}` : '点击任意宫位或星曜深度解读'}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+          </div>
 
-      <div className="chart-workspace">
-        <div className="min-w-0">
-          <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
-        </div>
-        <div className="min-w-0 lg:sticky lg:top-[72px]">
-          <InsightPanel chart={chart} selectedPalace={selectedPalace} />
-        </div>
-      </div>
-    </main>
+          <div className="chart-workspace">
+            <div className="min-w-0">
+              <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
+            </div>
+            <div className="min-w-0 lg:sticky lg:top-[72px]">
+              <InsightPanel
+                chart={chart}
+                selectedPalace={selectedPalace}
+                onChartChange={(nextChart) => {
+                  setChart(nextChart);
+                  setSelectedPalace(null);
+                }}
+              />
+            </div>
+          </div>
+        </motion.main>
+      )}
+    </AnimatePresence>
   );
 }

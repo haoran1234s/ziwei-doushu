@@ -2,38 +2,19 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  MOTION,
+  MagneticButton,
+  ObservatoryReveal,
+  ReadingProgressBar,
+  SpotlightCard,
+} from '@/components/MotionPrimitives';
 
 const HeroArmillary3D = dynamic(() => import('@/components/three/HeroArmillary3D'), {
   ssr: false,
 });
-
-function FadeIn({
-  children,
-  delay = 0,
-  y = 20,
-  className = '',
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  y?: number;
-  className?: string;
-}) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-70px' });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
 
 const STAR_GROUPS = [
   {
@@ -93,12 +74,21 @@ const NI_TEACHINGS = [
   },
 ];
 
+const HERO_STATS = [
+  { num: '14 主星', label: '庙旺利陷全分级' },
+  { num: '12 宫格', label: '2D / 3D 双视图' },
+  { num: '3 部典籍', label: '骨髓赋·全集·全书' },
+  { num: 'NOAA 口径', label: '经度+均时差校准' },
+];
+
 export default function HomePage() {
   const [selectedStar, setSelectedStar] = useState<string>('紫微');
   const activeBrief = STAR_BRIEF[selectedStar];
 
   return (
     <div style={{ background: 'var(--bg-0)', color: 'var(--tx-1)' }}>
+      <ReadingProgressBar />
+
       {/* ══ HERO · 3D 紫微浑天星穹主舞台（左右分栏，零重叠） ═════ */}
       <section className="relative min-h-[calc(100vh-56px)] flex items-center overflow-hidden">
         {/* 顶部与右侧柔和星穹氛围光晕（纯背景装饰，不遮挡内容） */}
@@ -117,7 +107,7 @@ export default function HomePage() {
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
+                transition={{ duration: 0.5, ease: MOTION.easeOutExpo }}
                 className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full mb-7 text-xs font-mono-num"
                 style={{
                   background: 'var(--ac-bg)',
@@ -125,30 +115,48 @@ export default function HomePage() {
                   color: 'var(--ac)',
                 }}
               >
-                <span>✦</span>
+                <motion.span
+                  animate={{ opacity: [0.55, 1, 0.55], scale: [0.92, 1.1, 0.92] }}
+                  transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  ✦
+                </motion.span>
                 <span>NI HAI XIA · 天纪三合正宗体系</span>
               </motion.div>
 
-              <motion.h1
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+              <h1
                 className="font-serif-cn font-bold tracking-[0.08em] leading-[1.12] mb-6"
                 style={{
                   fontSize: 'clamp(40px, 5.2vw, 70px)',
                   color: 'var(--tx-0)',
                 }}
               >
-                观星知命
-                <span className="block mt-1" style={{ color: 'var(--ac)' }}>
-                  紫微斗数全仪
+                <span className="block overflow-hidden">
+                  <motion.span
+                    className="block"
+                    initial={{ y: '100%', opacity: 0 }}
+                    animate={{ y: '0%', opacity: 1 }}
+                    transition={{ duration: 0.68, delay: 0.05, ease: MOTION.easeOutExpo }}
+                  >
+                    观星知命
+                  </motion.span>
                 </span>
-              </motion.h1>
+                <span className="block overflow-hidden mt-1" style={{ color: 'var(--ac)' }}>
+                  <motion.span
+                    className="block"
+                    initial={{ y: '100%', opacity: 0 }}
+                    animate={{ y: '0%', opacity: 1 }}
+                    transition={{ duration: 0.72, delay: 0.14, ease: MOTION.easeOutExpo }}
+                  >
+                    紫微斗数全仪
+                  </motion.span>
+                </span>
+              </h1>
 
               <motion.p
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.16 }}
+                transition={{ duration: 0.58, delay: 0.2, ease: MOTION.easeOutExpo }}
                 className="text-base sm:text-lg leading-relaxed mb-9 max-w-lg"
                 style={{ color: 'var(--tx-2)' }}
               >
@@ -159,51 +167,59 @@ export default function HomePage() {
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, delay: 0.24 }}
+                transition={{ duration: 0.55, delay: 0.26, ease: MOTION.easeOutExpo }}
                 className="flex flex-wrap items-center gap-3.5 mb-10"
               >
-                <Link href="/chart" className="btn-primary">
-                  <span>立即免费排盘</span>
-                  <span>→</span>
-                </Link>
-                <Link href="/heming" className="btn-ghost">
-                  双人合盘共参
-                </Link>
-                <Link href="/library" className="btn-ghost">
-                  研读明刊古籍
-                </Link>
+                <MagneticButton>
+                  <Link href="/chart" className="btn-primary group">
+                    <span>立即免费排盘</span>
+                    <span className="hover-arrow-shift">→</span>
+                  </Link>
+                </MagneticButton>
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Link href="/heming" className="btn-ghost">
+                    双人合盘共参
+                  </Link>
+                </motion.div>
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Link href="/library" className="btn-ghost">
+                    研读明刊古籍
+                  </Link>
+                </motion.div>
               </motion.div>
 
               {/* 精密天文指标条 */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.35 }}
+              <div
                 className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-7"
                 style={{ borderTop: '1px solid var(--bdr)' }}
               >
-                {[
-                  { num: '14 主星', label: '庙旺利陷全分级' },
-                  { num: '12 宫格', label: '2D / 3D 双视图' },
-                  { num: '3 部典籍', label: '骨髓赋·全集·全书' },
-                  { num: 'NOAA 口径', label: '经度+均时差校准' },
-                ].map((stat) => (
-                  <div key={stat.num}>
+                {HERO_STATS.map((stat, idx) => (
+                  <motion.div
+                    key={stat.num}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.48, delay: 0.3 + idx * 0.06, ease: MOTION.easeOutExpo }}
+                  >
                     <div className="font-mono-num text-sm font-semibold" style={{ color: 'var(--ac)' }}>
                       {stat.num}
                     </div>
                     <div className="text-xs mt-0.5" style={{ color: 'var(--tx-3)' }}>
                       {stat.label}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </motion.div>
+              </div>
             </div>
 
             {/* 右栏：独立 3D 紫微浑天铜仪交互舞台 */}
-            <div className="relative w-full h-[380px] sm:h-[460px] lg:h-[580px]">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.75, delay: 0.14, ease: MOTION.easeOutExpo }}
+              className="relative w-full h-[380px] sm:h-[460px] lg:h-[580px]"
+            >
               <HeroArmillary3D />
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -211,21 +227,22 @@ export default function HomePage() {
       {/* ══ 交互式十四主星与四化沙盒 ═══════════════════════════ */}
       <section className="py-20" style={{ borderTop: '1px solid var(--bdr)', background: 'var(--bg-1)' }}>
         <div className="container-page">
-          <FadeIn className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+          <ObservatoryReveal className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
             <div>
               <div className="label-section mb-2">FOURTEEN MAJOR STARS</div>
               <h2 className="font-serif-cn text-2xl sm:text-3xl font-bold tracking-[0.1em]" style={{ color: 'var(--tx-0)' }}>
                 北斗南斗十四主星 · 四化权衡
               </h2>
             </div>
-            <Link href="/knowledge" className="text-xs font-mono-num no-underline" style={{ color: 'var(--ac)' }}>
-              进入 182 项主星宫位知识库 →
+            <Link href="/knowledge" className="group text-xs font-mono-num no-underline inline-flex items-center gap-1" style={{ color: 'var(--ac)' }}>
+              <span>进入 182 项主星宫位知识库</span>
+              <span className="hover-arrow-shift">→</span>
             </Link>
-          </FadeIn>
+          </ObservatoryReveal>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-6 items-start">
             {/* 左：主星点选矩阵 */}
-            <FadeIn className="card-glass rounded-2xl p-6 space-y-6">
+            <ObservatoryReveal className="card-glass rounded-2xl p-6 space-y-6">
               {STAR_GROUPS.map((grp) => (
                 <div key={grp.group}>
                   <div className="text-xs font-mono-num mb-3" style={{ color: 'var(--tx-3)' }}>
@@ -235,19 +252,30 @@ export default function HomePage() {
                     {grp.stars.map((star) => {
                       const active = selectedStar === star;
                       return (
-                        <button
+                        <motion.button
                           key={star}
                           type="button"
                           onClick={() => setSelectedStar(star)}
-                          className="py-2.5 px-3 rounded-xl text-sm font-serif-cn font-semibold tracking-[0.12em] transition-all text-center"
+                          whileHover={{ y: -2 }}
+                          whileTap={{ scale: 0.96 }}
+                          transition={MOTION.springSnappy}
+                          className="relative py-2.5 px-3 rounded-xl text-sm font-serif-cn font-semibold tracking-[0.12em] text-center transition-colors"
                           style={{
-                            background: active ? 'var(--ac)' : 'var(--bg-0)',
+                            background: 'var(--bg-0)',
                             color: active ? 'var(--bg-0)' : 'var(--tx-1)',
                             border: `1px solid ${active ? 'var(--ac)' : 'var(--bdr-med)'}`,
                           }}
                         >
-                          {star}
-                        </button>
+                          {active && (
+                            <motion.span
+                              layoutId="home-star-selector"
+                              transition={MOTION.springSnappy}
+                              className="absolute inset-0 rounded-[11px] pointer-events-none"
+                              style={{ background: 'var(--ac)' }}
+                            />
+                          )}
+                          <span className="relative z-10">{star}</span>
+                        </motion.button>
                       );
                     })}
                   </div>
@@ -261,56 +289,80 @@ export default function HomePage() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {SIHUA_META.map((item) => (
-                    <div key={item.name} className={`rounded-xl p-3 border ${item.badge}`}>
+                    <motion.div
+                      key={item.name}
+                      whileHover={{ y: -2 }}
+                      transition={{ duration: 0.2, ease: MOTION.easeOutQuart }}
+                      className={`rounded-xl p-3 border transition-shadow hover:shadow-sm ${item.badge}`}
+                    >
                       <div className="font-serif-cn text-sm font-bold mb-0.5">{item.name}</div>
                       <div className="text-[11px] opacity-85 mb-1">{item.attr}</div>
                       <div className="text-[11px] leading-snug" style={{ color: 'var(--tx-2)' }}>
                         {item.brief}
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
-            </FadeIn>
+            </ObservatoryReveal>
 
             {/* 右：主星即时详情卡片 */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={selectedStar}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22 }}
+                initial={{ opacity: 0, y: 10, scale: 0.99 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.99 }}
+                transition={{ duration: 0.26, ease: MOTION.easeOutExpo }}
                 className="card-glass rounded-2xl p-6 sm:p-8 flex flex-col justify-between min-h-[340px]"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-3 mb-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, delay: 0.03 }}
+                    className="flex items-center justify-between gap-3 mb-4"
+                  >
                     <span className="text-xs font-mono-num px-2.5 py-1 rounded-full" style={{ background: 'var(--ac-bg)', color: 'var(--ac)', border: '1px solid var(--ac-bdr)' }}>
                       {activeBrief.attr}
                     </span>
                     <span className="text-xs font-mono-num" style={{ color: 'var(--tx-3)' }}>
                       STAR DOSSIER
                     </span>
-                  </div>
+                  </motion.div>
 
-                  <h3 className="font-serif-cn text-4xl font-bold tracking-[0.12em] mb-4" style={{ color: 'var(--tx-0)' }}>
+                  <motion.h3
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.26, delay: 0.05, ease: MOTION.easeOutExpo }}
+                    className="font-serif-cn text-4xl font-bold tracking-[0.12em] mb-4"
+                    style={{ color: 'var(--tx-0)' }}
+                  >
                     {selectedStar}星
-                  </h3>
+                  </motion.h3>
 
-                  <p className="text-sm leading-loose mb-6" style={{ color: 'var(--tx-2)' }}>
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.28, delay: 0.08 }}
+                    className="text-sm leading-loose mb-6"
+                    style={{ color: 'var(--tx-2)' }}
+                  >
                     {activeBrief.brief}
-                  </p>
+                  </motion.p>
                 </div>
 
                 <div className="pt-5 flex items-center justify-between gap-3" style={{ borderTop: '1px solid var(--bdr)' }}>
                   <Link
                     href={`/knowledge/${activeBrief.slug}/overview`}
-                    className="btn-ghost py-2 px-5 text-xs"
+                    className="btn-ghost py-2 px-5 text-xs group"
                   >
-                    阅读「{selectedStar}星」十三宫论断 →
+                    <span>阅读「{selectedStar}星」十三宫论断</span>
+                    <span className="hover-arrow-shift">→</span>
                   </Link>
-                  <Link href="/chart" className="text-xs font-mono-num no-underline" style={{ color: 'var(--ac)' }}>
-                    排盘查看落宫 ↗
+                  <Link href="/chart" className="group text-xs font-mono-num no-underline inline-flex items-center gap-1" style={{ color: 'var(--ac)' }}>
+                    <span>排盘查看落宫</span>
+                    <span className="hover-arrow-shift">↗</span>
                   </Link>
                 </div>
               </motion.div>
@@ -322,7 +374,7 @@ export default function HomePage() {
       {/* ══ 天·地·人 三分哲学 & 倪师体系精要 ═══════════════════ */}
       <section className="py-20" style={{ borderTop: '1px solid var(--bdr)' }}>
         <div className="container-page">
-          <FadeIn className="text-center max-w-2xl mx-auto mb-14">
+          <ObservatoryReveal className="text-center max-w-2xl mx-auto mb-14">
             <div className="label-section mb-2">PHILOSOPHY · 命理观</div>
             <h2 className="font-serif-cn text-3xl sm:text-4xl font-bold tracking-[0.14em] mb-4" style={{ color: 'var(--tx-0)' }}>
               天 · 地 · 人
@@ -330,7 +382,7 @@ export default function HomePage() {
             <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
               「提前窥探命运的意义，不在于被动等待应验，而在于借星盘认识自己的禀赋与盲区，以地势与人念共改其运。」
             </p>
-          </FadeIn>
+          </ObservatoryReveal>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-14">
             {[
@@ -338,40 +390,62 @@ export default function HomePage() {
               { glyph: '地', sub: '⅓ 地理方位环境', color: 'var(--ke)', desc: '所处的城市经纬、居住环境与时代浪潮，同样深刻改变着同一张命盘的显化高度。' },
               { glyph: '人', sub: '⅓ 心念选择行动', color: 'var(--lu)', desc: '觉察后的每一次克制与精进。看懂格局不是认命，而是知止而后能行。' },
             ].map((item, idx) => (
-              <FadeIn key={item.glyph} delay={idx * 0.08} className="card-glass rounded-2xl p-7">
-                <div className="flex items-baseline justify-between mb-5">
-                  <span className="font-serif-cn text-5xl font-bold" style={{ color: item.color }}>
-                    {item.glyph}
-                  </span>
-                  <span className="font-mono-num text-xs" style={{ color: 'var(--tx-3)' }}>
-                    {item.sub}
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
-                  {item.desc}
-                </p>
-              </FadeIn>
+              <ObservatoryReveal key={item.glyph} delay={idx * 0.08}>
+                <SpotlightCard className="card-glass rounded-2xl p-7 group h-full">
+                  <div className="flex items-baseline justify-between mb-5">
+                    <span
+                      className="font-serif-cn text-5xl font-bold inline-block transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-0.5"
+                      style={{ color: item.color }}
+                    >
+                      {item.glyph}
+                    </span>
+                    <span className="font-mono-num text-xs" style={{ color: 'var(--tx-3)' }}>
+                      {item.sub}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
+                    {item.desc}
+                  </p>
+                </SpotlightCard>
+              </ObservatoryReveal>
             ))}
           </div>
 
           {/* 倪师四诀 1px 建筑结构网格 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-px rounded-2xl overflow-hidden" style={{ background: 'var(--bdr-med)', border: '1px solid var(--bdr-med)' }}>
-            {NI_TEACHINGS.map((t) => (
-              <div key={t.idx} className="p-7" style={{ background: 'var(--bg-0)' }}>
-                <div className="flex items-center gap-3 mb-2.5">
-                  <span className="font-mono-num text-xs font-semibold" style={{ color: 'var(--ac)' }}>
-                    {t.idx}
+          <ObservatoryReveal>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-px rounded-2xl overflow-hidden" style={{ background: 'var(--bdr-med)', border: '1px solid var(--bdr-med)' }}>
+              {NI_TEACHINGS.map((t, idx) => (
+                <motion.div
+                  key={t.idx}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 'some' }}
+                  transition={{ duration: 0.46, delay: idx * 0.06, ease: MOTION.easeOutExpo }}
+                  className="group relative p-7 interactive-row"
+                  style={{ background: 'var(--bg-0)' }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-3.5 right-4 font-mono-num text-[11px] opacity-0 transition-opacity duration-200 group-hover:opacity-80"
+                    style={{ color: 'var(--ac)' }}
+                  >
+                    +
                   </span>
-                  <h3 className="font-serif-cn text-lg font-semibold tracking-[0.08em]" style={{ color: 'var(--tx-0)' }}>
-                    {t.title}
-                  </h3>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
-                  {t.body}
-                </p>
-              </div>
-            ))}
-          </div>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="font-mono-num text-xs font-semibold" style={{ color: 'var(--ac)' }}>
+                      {t.idx}
+                    </span>
+                    <h3 className="font-serif-cn text-lg font-semibold tracking-[0.08em]" style={{ color: 'var(--tx-0)' }}>
+                      {t.title}
+                    </h3>
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
+                    {t.body}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </ObservatoryReveal>
         </div>
       </section>
 
@@ -385,41 +459,45 @@ export default function HomePage() {
                 title: '双人合盘 · 星轨共振',
                 desc: '并排输入两人出生时辰，实时推演互飞四化弧线与 12 宫互动矩阵。',
                 href: '/heming',
-                cta: '开启合盘分析 →',
+                cta: '开启合盘分析',
               },
               {
                 tag: '02 · ARCHIVES',
                 title: '明刊古籍原典库',
                 desc: '收录《骨髓赋》《紫微斗数全集》《紫微斗数全书》，支持全文瞬时检索与术语释义。',
                 href: '/library',
-                cta: '入藏经阁研读 →',
+                cta: '入藏经阁研读',
               },
               {
                 tag: '03 · ENCYCLOPEDIA',
                 title: '14 主星 × 13 宫百科',
                 desc: '按倪海厦《天纪》理法系统梳理主星入各宫特质、吉凶宜忌与古典引证。',
                 href: '/knowledge',
-                cta: '查阅星曜谱系 →',
+                cta: '查阅星曜谱系',
               },
-            ].map((card) => (
-              <Link
-                key={card.href}
-                href={card.href}
-                className="card-glass rounded-2xl p-7 flex flex-col justify-between no-underline transition-transform hover:-translate-y-1"
-              >
-                <div>
-                  <div className="label-section mb-3">{card.tag}</div>
-                  <h3 className="font-serif-cn text-xl font-bold tracking-[0.08em] mb-3" style={{ color: 'var(--tx-0)' }}>
-                    {card.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--tx-2)' }}>
-                    {card.desc}
-                  </p>
-                </div>
-                <span className="text-xs font-semibold tracking-[0.08em]" style={{ color: 'var(--ac)' }}>
-                  {card.cta}
-                </span>
-              </Link>
+            ].map((card, idx) => (
+              <ObservatoryReveal key={card.href} delay={idx * 0.08}>
+                <SpotlightCard className="card-glass rounded-2xl h-full">
+                  <Link
+                    href={card.href}
+                    className="group p-7 flex flex-col justify-between h-full no-underline"
+                  >
+                    <div>
+                      <div className="label-section mb-3">{card.tag}</div>
+                      <h3 className="font-serif-cn text-xl font-bold tracking-[0.08em] mb-3" style={{ color: 'var(--tx-0)' }}>
+                        {card.title}
+                      </h3>
+                      <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--tx-2)' }}>
+                        {card.desc}
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.08em]" style={{ color: 'var(--ac)' }}>
+                      <span>{card.cta}</span>
+                      <span className="hover-arrow-shift">→</span>
+                    </span>
+                  </Link>
+                </SpotlightCard>
+              </ObservatoryReveal>
             ))}
           </div>
         </div>

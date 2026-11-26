@@ -3,9 +3,50 @@ import { BRANCHES, SHICHEN, STEMS } from '@/lib/ziwei/constants';
 import { detectPatterns } from '@/lib/ziwei/patterns';
 import type { Palace, Star, ZiweiChart } from '@/lib/ziwei/types';
 
+export interface OpenAiToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_calls?: OpenAiToolCall[];
+  tool_call_id?: string;
+  name?: string;
+}
+
+export interface OpenAiToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+export interface ToolGeneratedChart {
+  label: string;
+  shichen: string;
+  description?: string;
+  chart: ZiweiChart;
+}
+
+export interface ToolExecutionOutput {
   content: string;
+  charts?: ToolGeneratedChart[];
+}
+
+export interface OpenAiToolSseOptions {
+  messages: ChatMessage[];
+  tools: OpenAiToolDefinition[];
+  executeTool: (name: string, args: string) => Promise<ToolExecutionOutput> | ToolExecutionOutput;
+  signal?: AbortSignal;
+  maxToolRounds?: number;
 }
 
 interface AiConfig {
@@ -80,6 +121,20 @@ function formatPalace(palace: Palace): string {
     .join('\n');
 }
 
+function extractNatalSiHuaSummary(chart: ZiweiChart): string {
+  const order = ['禄', '权', '科', '忌'] as const;
+  const items: string[] = [];
+  for (const sh of order) {
+    for (const p of chart.palaces) {
+      const hit = p.stars.find((s) => s.siHua === sh);
+      if (hit) {
+        items.push(`化${sh}-${hit.name}(${p.name})`);
+      }
+    }
+  }
+  return items.join(' ');
+}
+
 /**
  * 将 ZiweiChart 序列化为结构化中文命盘摘要，供 LLM 分析使用。
  */
@@ -90,6 +145,7 @@ export function formatChartSummary(chart: ZiweiChart, label = '命主'): string 
   const shenBranch = BRANCHES[chart.shenGongBranch] ?? '';
   const currentDaXian = chart.daXians[chart.currentDaXianIndex];
   const patterns = detectPatterns(chart);
+  const natalSiHua = extractNatalSiHuaSummary(chart);
 
   const header = [
     `【${label}基本信息】`,
@@ -98,6 +154,7 @@ export function formatChartSummary(chart: ZiweiChart, label = '命主'): string 
     `- 农历：${lunarInfo.lunarYear}年${lunarInfo.isLeapMonth ? '闰' : ''}${Math.abs(lunarInfo.lunarMonth)}月${lunarInfo.lunarDay}日`,
     lunarInfo.fourPillars ? `- 四柱：${lunarInfo.fourPillars.join(' ')}` : '',
     `- 命局：${chart.wuxingJuName} | 命宫地支：${mingBranch} | 身宫地支：${shenBranch}`,
+    natalSiHua ? `- 生年四化：${natalSiHua}` : '',
     chart.mingZhu || chart.shenZhu
       ? `- 命主星：${chart.mingZhu ?? '-'} | 身主星：${chart.shenZhu ?? '-'}`
       : '',
@@ -121,6 +178,30 @@ export function formatChartSummary(chart: ZiweiChart, label = '命主'): string 
   const palacesText = `\n【十二宫位星曜】\n${chart.palaces.map(formatPalace).join('\n')}`;
 
   return `${header}${patternText}${palacesText}`;
+}
+
+interface StreamDeltaToolCall {
+  index?: number;
+  id?: string;
+  type?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
+interface StreamChunkPayload {
+  choices?: Array<{
+    delta?: {
+      content?: string | null;
+      tool_calls?: StreamDeltaToolCall[];
+    };
+  }>;
+}
+
+function isToolsUnsupportedError(status: number, errText: string): boolean {
+  if (status !== 400 && status !== 422) return false;
+  return /tool|function|tool_choice/i.test(errText);
 }
 
 /**
@@ -181,6 +262,30 @@ export async function createOpenAiSseResponse(
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       };
 
+      const processLine = (rawLine: string) => {
+        const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+        if (!line.startsWith('data: ')) return;
+
+        const payload = line.slice(6).trim();
+        if (!payload) return;
+        if (payload === '[DONE]') {
+          emitDone();
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(payload) as StreamChunkPayload;
+          const text = parsed.choices?.[0]?.delta?.content;
+          if (typeof text === 'string' && text.length > 0) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ delta: { text } })}\n\n`),
+            );
+          }
+        } catch {
+          // 忽略非标准注释或心跳分片
+        }
+      };
+
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -191,53 +296,12 @@ export async function createOpenAiSseResponse(
           pendingLine = lines.pop() ?? '';
 
           for (const rawLine of lines) {
-            const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
-            if (!line.startsWith('data: ')) continue;
-
-            const payload = line.slice(6).trim();
-            if (!payload) continue;
-            if (payload === '[DONE]') {
-              emitDone();
-              continue;
-            }
-
-            try {
-              const parsed = JSON.parse(payload) as {
-                choices?: Array<{ delta?: { content?: string | null } }>;
-              };
-              const text = parsed.choices?.[0]?.delta?.content;
-              if (typeof text === 'string' && text.length > 0) {
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ delta: { text } })}\n\n`),
-                );
-              }
-            } catch {
-              // 忽略非标准注释或心跳分片
-            }
+            processLine(rawLine);
           }
         }
 
-        // 处理流结束时残留的最后一行
-        const tail = pendingLine.trim();
-        if (tail.startsWith('data: ')) {
-          const payload = tail.slice(6).trim();
-          if (payload === '[DONE]') {
-            emitDone();
-          } else if (payload) {
-            try {
-              const parsed = JSON.parse(payload) as {
-                choices?: Array<{ delta?: { content?: string | null } }>;
-              };
-              const text = parsed.choices?.[0]?.delta?.content;
-              if (typeof text === 'string' && text.length > 0) {
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ delta: { text } })}\n\n`),
-                );
-              }
-            } catch {
-              // 忽略不完整尾包
-            }
-          }
+        if (pendingLine.trim()) {
+          processLine(pendingLine);
         }
 
         emitDone();
@@ -255,6 +319,231 @@ export async function createOpenAiSseResponse(
     },
     async cancel() {
       await upstreamBody.cancel().catch(() => {});
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    },
+  });
+}
+
+/**
+ * 支持 OpenAI Tool Calling（多轮工具自动执行）的流式 SSE 接口。
+ * 会向前端推送：
+ * - data: {"status":"..."}
+ * - data: {"charts":[...]}
+ * - data: {"delta":{"text":"..."}}
+ * - data: {"error":"..."}
+ * - data: [DONE]
+ */
+export async function createOpenAiToolSseResponse(
+  options: OpenAiToolSseOptions,
+): Promise<Response> {
+  const { apiKey, baseUrl, model } = getAiConfig();
+  if (!apiKey) {
+    return Response.json(
+      { error: '未配置 OPENAI_API_KEY（请检查 .env.local）' },
+      { status: 500 },
+    );
+  }
+
+  const { messages, tools, executeTool, signal, maxToolRounds = 4 } = options;
+  const encoder = new TextEncoder();
+
+  const requestCompletion = async (
+    workingMessages: ChatMessage[],
+    useTools: boolean,
+  ): Promise<Response> => {
+    const payload: Record<string, unknown> = {
+      model,
+      stream: true,
+      temperature: 0.7,
+      messages: workingMessages,
+    };
+    if (useTools && tools.length > 0) {
+      payload.tools = tools;
+      payload.tool_choice = 'auto';
+    }
+
+    return fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+  };
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const workingMessages: ChatMessage[] = [...messages];
+      let sentDone = false;
+      let allowTools = tools.length > 0;
+
+      const emitEvent = (obj: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+      };
+      const emitDone = () => {
+        if (sentDone) return;
+        sentDone = true;
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      };
+
+      try {
+        for (let round = 0; round <= maxToolRounds; round++) {
+          if (signal?.aborted) break;
+
+          // 超出工具轮次上限时，强制以纯文本收尾
+          const useToolsThisRound = allowTools && round < maxToolRounds;
+          let upstreamRes = await requestCompletion(workingMessages, useToolsThisRound);
+
+          // 若网关不支持 tools/function calling，自动降级为普通流式对话
+          if (!upstreamRes.ok && useToolsThisRound) {
+            const errText = await upstreamRes.text().catch(() => '');
+            if (isToolsUnsupportedError(upstreamRes.status, errText)) {
+              allowTools = false;
+              upstreamRes = await requestCompletion(workingMessages, false);
+            } else {
+              emitEvent({
+                error: `上游模型接口请求失败 (${upstreamRes.status})${errText ? `：${errText.slice(0, 160)}` : ''}`,
+              });
+              break;
+            }
+          }
+
+          if (!upstreamRes.ok || !upstreamRes.body) {
+            const errText = await upstreamRes.text().catch(() => '');
+            emitEvent({
+              error: `上游模型接口请求失败 (${upstreamRes.status})${errText ? `：${errText.slice(0, 160)}` : ''}`,
+            });
+            break;
+          }
+
+          const reader = upstreamRes.body.getReader();
+          const decoder = new TextDecoder();
+          let pendingLine = '';
+          let roundText = '';
+          const toolCallMap = new Map<number, OpenAiToolCall>();
+
+          const consumeSseLine = (rawLine: string) => {
+            const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+            if (!line.startsWith('data: ')) return;
+            const payload = line.slice(6).trim();
+            if (!payload || payload === '[DONE]') return;
+
+            try {
+              const parsed = JSON.parse(payload) as StreamChunkPayload;
+              const delta = parsed.choices?.[0]?.delta;
+              if (!delta) return;
+
+              if (typeof delta.content === 'string' && delta.content.length > 0) {
+                roundText += delta.content;
+                emitEvent({ delta: { text: delta.content } });
+              }
+
+              if (Array.isArray(delta.tool_calls)) {
+                for (const tc of delta.tool_calls) {
+                  const idx = typeof tc.index === 'number' ? tc.index : 0;
+                  const existing = toolCallMap.get(idx) ?? {
+                    id: tc.id || `call_${round}_${idx}`,
+                    type: 'function' as const,
+                    function: { name: '', arguments: '' },
+                  };
+                  if (tc.id) existing.id = tc.id;
+                  if (tc.function?.name) existing.function.name += tc.function.name;
+                  if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
+                  toolCallMap.set(idx, existing);
+                }
+              }
+            } catch {
+              // 忽略非标准注释或分片噪声
+            }
+          };
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              pendingLine += decoder.decode(value, { stream: true });
+              const lines = pendingLine.split('\n');
+              pendingLine = lines.pop() ?? '';
+              for (const rawLine of lines) {
+                consumeSseLine(rawLine);
+              }
+            }
+            if (pendingLine.trim()) {
+              consumeSseLine(pendingLine);
+            }
+          } finally {
+            await reader.cancel().catch(() => {});
+            reader.releaseLock();
+          }
+
+          const collectedCalls = Array.from(toolCallMap.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([, call]) => call)
+            .filter((c) => c.function.name.trim().length > 0);
+
+          if (collectedCalls.length === 0) {
+            break;
+          }
+
+          emitEvent({ status: '正在调用内置排盘引擎排演命盘…' });
+
+          workingMessages.push({
+            role: 'assistant',
+            content: roundText || null,
+            tool_calls: collectedCalls,
+          });
+
+          const roundCharts: ToolGeneratedChart[] = [];
+          for (const call of collectedCalls) {
+            let output: ToolExecutionOutput;
+            try {
+              output = await executeTool(call.function.name, call.function.arguments);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : '执行失败';
+              output = { content: `工具执行失败：${msg}` };
+            }
+
+            if (output.charts && output.charts.length > 0) {
+              roundCharts.push(...output.charts);
+            }
+
+            workingMessages.push({
+              role: 'tool',
+              tool_call_id: call.id,
+              name: call.function.name,
+              content: output.content,
+            });
+          }
+
+          if (roundCharts.length > 0) {
+            emitEvent({ charts: roundCharts });
+          }
+
+          emitEvent({ status: '' });
+        }
+
+        emitDone();
+        controller.close();
+      } catch (err) {
+        if (signal?.aborted) {
+          controller.close();
+        } else {
+          const msg = err instanceof Error ? err.message : '流式解读异常';
+          emitEvent({ error: msg });
+          emitDone();
+          controller.close();
+        }
+      }
     },
   });
 

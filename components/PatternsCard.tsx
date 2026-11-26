@@ -16,9 +16,9 @@ export default function PatternsCard({ chart }: { chart: ZiweiChart }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
+      transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
       className="card-glass rounded-2xl p-4 mt-4"
     >
       <div className="text-[11px] tracking-[0.14em] mb-3 flex items-center gap-2" style={{ color: 'var(--tx-2)' }}>
@@ -35,13 +35,23 @@ export default function PatternsCard({ chart }: { chart: ZiweiChart }) {
           return (
             <motion.div
               key={`${p.name}-${i}`}
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className="card-inner rounded-xl p-3"
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.28, delay: Math.min(i * 0.04, 0.32), ease: [0.16, 1, 0.3, 1] }}
+              className="card-inner rounded-xl p-3 transition-colors hover:border-[var(--ac-bdr)]"
             >
               <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: st.dot }} />
+                {p.level === 'excellent' ? (
+                  <motion.div
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: st.dot }}
+                    animate={{ scale: [1, 1.45, 1], opacity: [0.75, 1, 0.75] }}
+                    transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                ) : (
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: st.dot }} />
+                )}
                 <span className="font-serif-cn text-xs font-semibold" style={{ color: st.text }}>
                   {p.name}
                 </span>

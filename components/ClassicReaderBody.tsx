@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { STAR_BRIEF_SEO, STAR_TO_SLUG } from '@/lib/seo/knowledge';
 import { STAR_DESCRIPTIONS } from '@/lib/ziwei/constants';
+import { MOTION } from '@/components/MotionPrimitives';
 
 interface ParagraphItem {
   id: string;
@@ -69,25 +71,42 @@ export default function ClassicReaderBody({ paragraphs }: ClassicReaderBodyProps
         <div className="flex items-center gap-2 text-xs">
           <span style={{ color: 'var(--tx-3)' }}>字号</span>
           <div className="tab-container">
-            {(['sm', 'md', 'lg'] as const).map((sz) => (
-              <button
-                key={sz}
-                type="button"
-                onClick={() => setFontSize(sz)}
-                className={`tab-item text-xs py-1 px-2.5 ${fontSize === sz ? 'active' : ''}`}
-              >
-                {sz === 'sm' ? '小' : sz === 'md' ? '适中' : '大'}
-              </button>
-            ))}
+            {(['sm', 'md', 'lg'] as const).map((sz) => {
+              const active = fontSize === sz;
+              return (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => setFontSize(sz)}
+                  className="relative tab-item text-xs py-1 px-2.5"
+                  style={{
+                    background: 'transparent',
+                    color: active ? 'var(--tx-0)' : 'var(--tx-3)',
+                    fontWeight: active ? 600 : 400,
+                  }}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="reader-font-size"
+                      transition={MOTION.springSnappy}
+                      className="absolute inset-0 rounded-[6px] pointer-events-none"
+                      style={{ background: 'var(--bg-card)', boxShadow: 'var(--sh-xs)' }}
+                    />
+                  )}
+                  <span className="relative z-10">{sz === 'sm' ? '小' : sz === 'md' ? '适中' : '大'}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="flex items-center gap-3 text-xs">
           <span style={{ color: 'var(--tx-3)' }}>点击高亮星曜可查释义</span>
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.96 }}
             onClick={() => setShowNotes((v) => !v)}
-            className="px-3 py-1 rounded-full border text-xs"
+            className="px-3 py-1 rounded-full border text-xs transition-colors"
             style={{
               borderColor: showNotes ? 'var(--ac-bdr)' : 'var(--bdr-med)',
               background: showNotes ? 'var(--ac-bg)' : 'transparent',
@@ -95,56 +114,65 @@ export default function ClassicReaderBody({ paragraphs }: ClassicReaderBodyProps
             }}
           >
             {showNotes ? '隐去白话批注' : '显示白话批注'}
-          </button>
+          </motion.button>
         </div>
       </div>
 
       {/* 术语浮窗卡 */}
-      {activeTerm && termInfo && (
-        <div
-          className="mb-5 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in"
-          style={{
-            background: 'var(--ac-bg)',
-            border: '1px solid var(--ac-bdr)',
-          }}
-        >
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-serif-cn text-base font-bold" style={{ color: 'var(--ac-dim)' }}>
-                {termInfo.title}
-              </span>
-              {starMeta && (
-                <span className="text-[11px] font-mono-num px-2 py-0.5 rounded-full" style={{ border: '1px solid var(--ac-bdr)', color: 'var(--tx-2)' }}>
-                  {starMeta.element} · {starMeta.keywords}
+      <AnimatePresence mode="wait">
+        {activeTerm && termInfo && (
+          <motion.div
+            key={activeTerm}
+            initial={{ opacity: 0, y: -8, scale: 0.99 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.99 }}
+            transition={{ duration: 0.22, ease: MOTION.easeOutExpo }}
+            className="mb-5 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            style={{
+              background: 'var(--ac-bg)',
+              border: '1px solid var(--ac-bdr)',
+            }}
+          >
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-serif-cn text-base font-bold" style={{ color: 'var(--ac-dim)' }}>
+                  {termInfo.title}
                 </span>
-              )}
+                {starMeta && (
+                  <span className="text-[11px] font-mono-num px-2 py-0.5 rounded-full" style={{ border: '1px solid var(--ac-bdr)', color: 'var(--tx-2)' }}>
+                    {starMeta.element} · {starMeta.keywords}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--tx-1)' }}>
+                {termInfo.desc}
+              </p>
             </div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--tx-1)' }}>
-              {termInfo.desc}
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {termInfo.href && (
-              <Link
-                href={termInfo.href}
-                className="text-xs px-3 py-1.5 rounded-full no-underline font-medium"
-                style={{ background: 'var(--ac)', color: 'var(--bg-0)' }}
+            <div className="flex items-center gap-2 shrink-0">
+              {termInfo.href && (
+                <Link
+                  href={termInfo.href}
+                  className="group text-xs px-3 py-1.5 rounded-full no-underline font-medium inline-flex items-center gap-1"
+                  style={{ background: 'var(--ac)', color: 'var(--bg-0)' }}
+                >
+                  <span>查十三宫论断</span>
+                  <span className="hover-arrow-shift">→</span>
+                </Link>
+              )}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setActiveTerm(null)}
+                className="text-xs px-2.5 py-1.5 rounded-full border"
+                style={{ borderColor: 'var(--bdr-med)', color: 'var(--tx-2)' }}
               >
-                查十三宫论断 →
-              </Link>
-            )}
-            <button
-              type="button"
-              onClick={() => setActiveTerm(null)}
-              className="text-xs px-2.5 py-1.5 rounded-full border"
-              style={{ borderColor: 'var(--bdr-med)', color: 'var(--tx-2)' }}
-            >
-              收起
-            </button>
-          </div>
-        </div>
-      )}
+                收起
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 原典正文卡片 */}
       <div
@@ -167,7 +195,7 @@ export default function ClassicReaderBody({ paragraphs }: ClassicReaderBodyProps
                 {String(p.idx).padStart(2, '0')}
               </span>
               <p
-                className="font-serif-cn flex-1"
+                className="font-serif-cn flex-1 transition-[font-size] duration-200"
                 style={{
                   fontSize: fontSizePx,
                   color: 'var(--tx-0)',
@@ -177,11 +205,12 @@ export default function ClassicReaderBody({ paragraphs }: ClassicReaderBodyProps
               >
                 {p.segments.map((seg, idx) =>
                   TERM_DEFINITIONS[seg] ? (
-                    <button
+                    <motion.button
                       key={idx}
                       type="button"
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setActiveTerm(activeTerm === seg ? null : seg)}
-                      className="inline underline decoration-dotted underline-offset-4 cursor-pointer mx-px font-semibold"
+                      className="inline underline decoration-dotted underline-offset-4 cursor-pointer mx-px font-semibold transition-colors hover:bg-[var(--ac-bg)]"
                       style={{
                         color: activeTerm === seg ? 'var(--ac-dim)' : 'var(--ac)',
                         background: activeTerm === seg ? 'var(--ac-bg)' : 'transparent',
@@ -191,7 +220,7 @@ export default function ClassicReaderBody({ paragraphs }: ClassicReaderBodyProps
                       }}
                     >
                       {seg}
-                    </button>
+                    </motion.button>
                   ) : (
                     <span key={idx}>{seg}</span>
                   ),
@@ -199,43 +228,55 @@ export default function ClassicReaderBody({ paragraphs }: ClassicReaderBodyProps
               </p>
             </div>
 
-            {showNotes && p.translation && (
-              <div
-                style={{
-                  marginTop: '10px',
-                  marginLeft: '38px',
-                  padding: '10px 14px',
-                  background: 'var(--bg-1)',
-                  border: '1px solid var(--bdr)',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  color: 'var(--tx-2)',
-                  lineHeight: 1.8,
-                }}
-              >
-                <span className="text-[11px] font-semibold mr-2" style={{ color: 'var(--ac)' }}>白话</span>
-                {p.translation}
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {showNotes && p.translation && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.2, ease: MOTION.easeOutQuart }}
+                  style={{
+                    marginTop: '10px',
+                    marginLeft: '38px',
+                    padding: '10px 14px',
+                    background: 'var(--bg-1)',
+                    border: '1px solid var(--bdr)',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    color: 'var(--tx-2)',
+                    lineHeight: 1.8,
+                  }}
+                >
+                  <span className="text-[11px] font-semibold mr-2" style={{ color: 'var(--ac)' }}>白话</span>
+                  {p.translation}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {showNotes && p.niNote && (
-              <div
-                style={{
-                  marginTop: '8px',
-                  marginLeft: '38px',
-                  padding: '10px 14px',
-                  background: 'color-mix(in srgb, var(--quan) 9%, transparent)',
-                  border: '1px solid color-mix(in srgb, var(--quan) 25%, transparent)',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  color: 'var(--tx-1)',
-                  lineHeight: 1.8,
-                }}
-              >
-                <span className="text-[11px] font-semibold mr-2" style={{ color: 'var(--quan)' }}>倪师注</span>
-                {p.niNote}
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {showNotes && p.niNote && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.2, ease: MOTION.easeOutQuart }}
+                  style={{
+                    marginTop: '8px',
+                    marginLeft: '38px',
+                    padding: '10px 14px',
+                    background: 'color-mix(in srgb, var(--quan) 9%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--quan) 25%, transparent)',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    color: 'var(--tx-1)',
+                    lineHeight: 1.8,
+                  }}
+                >
+                  <span className="text-[11px] font-semibold mr-2" style={{ color: 'var(--quan)' }}>倪师注</span>
+                  {p.niNote}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         ))}
       </div>

@@ -182,14 +182,15 @@ export default function StarDetailPanel({ star, palaceName, onClose }: StarDetai
   const typeConfig = star ? levelConfig[star.type] : null;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {star && (
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ duration: 0.2 }}
-          className="card-glass rounded-2xl overflow-hidden"
+          key={star.name}
+          initial={{ opacity: 0, x: 18, scale: 0.99 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 16, scale: 0.99 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+          className="card-glass rounded-2xl overflow-hidden mt-4"
         >
           {/* 标题栏 */}
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--bdr)' }}>
@@ -206,15 +207,18 @@ export default function StarDetailPanel({ star, palaceName, onClose }: StarDetai
                 </span>
               )}
             </div>
-            <button
+            <motion.button
               type="button"
+              whileHover={{ rotate: 90 }}
+              whileTap={{ scale: 0.9 }}
+              transition={{ duration: 0.2 }}
               onClick={onClose}
-              className="transition-colors text-base leading-none w-7 h-7 rounded-full flex items-center justify-center"
+              className="transition-colors text-base leading-none w-7 h-7 rounded-full flex items-center justify-center hover:border-[var(--ac)]"
               style={{ color: 'var(--tx-2)', border: '1px solid var(--bdr-med)' }}
               aria-label="关闭详情"
             >
               ×
-            </button>
+            </motion.button>
           </div>
 
           <div className="p-4 space-y-4 overflow-y-auto max-h-[560px]">
@@ -279,14 +283,20 @@ export default function StarDetailPanel({ star, palaceName, onClose }: StarDetai
                     { label: '感情特质', value: detail.relationship, icon: '◇' },
                     { label: '财运分析', value: detail.wealth, icon: '◆' },
                     { label: '健康提示', value: detail.health, icon: '◎' },
-                  ].map(item => (
-                    <div key={item.label} className="card-inner rounded-lg p-3">
+                  ].map((item, idx) => (
+                    <motion.div
+                      key={item.label}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.22, delay: idx * 0.045, ease: [0.16, 1, 0.3, 1] }}
+                      className="card-inner rounded-lg p-3"
+                    >
                       <div className="text-[11px] mb-1 flex items-center gap-1" style={{ color: 'var(--ac)' }}>
                         <span>{item.icon}</span>
                         <span>{item.label}</span>
                       </div>
                       <p className="text-xs leading-relaxed" style={{ color: 'var(--tx-1)' }}>{item.value}</p>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
 

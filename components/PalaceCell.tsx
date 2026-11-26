@@ -45,17 +45,35 @@ const SiHuaBadge = ({
   label?: string;
   onClick?: (e: React.MouseEvent) => void;
 }) => {
+  if (overlay) {
+    return (
+      <motion.span
+        initial={{ opacity: 0, scale: 0.82 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        className={clsx(
+          'inline-flex items-center text-[9px] px-1 rounded border leading-none py-px font-bold ml-1 shrink-0 font-mono-num',
+          SIHUA_CLASS[siHua],
+          'border-dashed opacity-90',
+          onClick && 'cursor-pointer hover:opacity-100',
+        )}
+        onClick={onClick}
+      >
+        {label && <span className="mr-px opacity-75">{label}</span>}
+        {siHua}
+      </motion.span>
+    );
+  }
+
   return (
     <span
       className={clsx(
         'inline-flex items-center text-[9px] px-1 rounded border leading-none py-px font-bold ml-1 shrink-0 font-mono-num',
         SIHUA_CLASS[siHua],
-        overlay && 'border-dashed opacity-90',
         onClick && 'cursor-pointer hover:opacity-100',
       )}
       onClick={onClick}
     >
-      {overlay && label && <span className="mr-px opacity-75">{label}</span>}
       {siHua}
     </span>
   );
@@ -78,9 +96,10 @@ export default function PalaceCell({
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
+      whileTap={{ scale: 0.985 }}
       transition={{ duration: 0.28, delay, ease: [0.22, 1, 0.36, 1] }}
       onClick={onClick}
-      className="palace-cell relative flex flex-col p-2 cursor-pointer transition-colors duration-200 h-full"
+      className="palace-cell group relative flex flex-col p-2 cursor-pointer transition-colors duration-200 h-full hover:bg-[var(--ac-bg)]"
       style={{
         minHeight: '112px',
         background: isSelected
@@ -101,6 +120,28 @@ export default function PalaceCell({
           : 'none',
       }}
     >
+      {/* 选中态精密四角古铜准星 */}
+      {isSelected && (
+        <>
+          <motion.span
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.18 }}
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1 left-1 w-2 h-2 border-t border-l"
+            style={{ borderColor: 'var(--ac)' }}
+          />
+          <motion.span
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.18 }}
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-1 right-1 w-2 h-2 border-b border-r"
+            style={{ borderColor: 'var(--ac)' }}
+          />
+        </>
+      )}
+
       {/* 大限年龄（右上角） */}
       {daXianAge && (
         <div
@@ -177,7 +218,7 @@ export default function PalaceCell({
               onClick={e => { e.stopPropagation(); onStarClick?.(star); }}
             >
               <span
-                className="font-serif-cn text-[14px] leading-tight font-bold tracking-tight cursor-pointer hover:underline"
+                className="font-serif-cn text-[14px] leading-tight font-bold tracking-tight cursor-pointer hover:underline transition-opacity hover:opacity-85"
                 style={{
                   color:
                     star.brightness === 'bright'

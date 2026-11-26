@@ -160,7 +160,7 @@ body {
 
 /* ─── 容器与表面卡片 ─────────────────────────────────────── */
 .container-page {
-  max-width: 1240px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -209,6 +209,8 @@ body {
 
 /* ─── 按钮体系 ───────────────────────────────────────────── */
 .btn-primary {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -222,17 +224,35 @@ body {
   letter-spacing: 0.08em;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.18s ease, transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease;
+  transition: background-color 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, box-shadow 0.24s ease;
   text-decoration: none;
+}
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 25%, rgba(255, 255, 255, 0.24) 50%, transparent 75%);
+  transform: translateX(-115%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
 }
 .btn-primary:hover {
   background: var(--ac-dim);
+  transform: translateY(-1px);
+  box-shadow: var(--sh-sm);
+}
+.btn-primary:hover::after {
+  transform: translateX(115%);
+  opacity: 1;
 }
 .btn-primary:active {
-  transform: scale(0.98);
+  transform: scale(0.975);
 }
 
 .btn-accent {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -246,14 +266,16 @@ body {
   letter-spacing: 0.08em;
   border: none;
   cursor: pointer;
-  transition: background-color 0.18s ease, transform 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s ease;
   text-decoration: none;
 }
 .btn-accent:hover {
   background: var(--ac-dim);
+  transform: translateY(-1px);
+  box-shadow: var(--sh-sm);
 }
 .btn-accent:active {
-  transform: scale(0.98);
+  transform: scale(0.975);
 }
 
 .btn-ghost {
@@ -270,12 +292,16 @@ body {
   letter-spacing: 0.06em;
   border: 1px solid var(--bdr-heavy);
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease;
+  transition: background-color 0.22s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
   text-decoration: none;
 }
 .btn-ghost:hover {
   background: var(--ac-bg);
   border-color: var(--ac);
+  transform: translateY(-1px);
+}
+.btn-ghost:active {
+  transform: scale(0.975);
 }
 
 /* ─── Tab 容器与四化徽章 ────────────────────────────────── */
@@ -296,8 +322,11 @@ body {
   cursor: pointer;
   border: none;
   background: transparent;
-  transition: all 0.18s ease;
+  transition: color 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
   white-space: nowrap;
+}
+.tab-item:active {
+  transform: scale(0.97);
 }
 .tab-item.active {
   background: var(--bg-card);
@@ -376,6 +405,18 @@ body {
 }
 
 /* ─── 动画与降级 ─────────────────────────────────────────── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 999;
+}
+
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -388,11 +429,61 @@ body {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+@keyframes astrolabe-orbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes astrolabe-orbit-reverse {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+@keyframes cursor-blink {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.15; }
+}
+
 .animate-fade-up {
   animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 .animate-fade-in {
   animation: fade-in 0.35s ease forwards;
+}
+.animate-astrolabe-cw {
+  animation: astrolabe-orbit 72s linear infinite;
+  transform-origin: center;
+}
+.animate-astrolabe-ccw {
+  animation: astrolabe-orbit-reverse 96s linear infinite;
+  transform-origin: center;
+}
+.animate-cursor-blink {
+  animation: cursor-blink 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* ─── 微交互通用辅助类（纯 GPU transform / color / opacity）── */
+.hover-arrow-shift {
+  display: inline-block;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .hover-arrow-shift,
+a:hover .hover-arrow-shift,
+button:hover .hover-arrow-shift {
+  transform: translateX(3px);
+}
+.hover-arrow-left {
+  display: inline-block;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .hover-arrow-left,
+a:hover .hover-arrow-left,
+button:hover .hover-arrow-left {
+  transform: translateX(-3px);
+}
+.interactive-row {
+  transition: background-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.interactive-row:hover {
+  background: var(--ac-bg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -403,6 +494,11 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .btn-primary:hover,
+  .btn-accent:hover,
+  .btn-ghost:hover {
+    transform: none;
   }
 }
 
@@ -424,7 +520,7 @@ mark {
 .chart-workspace {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 480px);
   gap: 20px;
   align-items: start;
 }

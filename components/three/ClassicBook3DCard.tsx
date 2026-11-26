@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { prefersReducedMotion } from './webgl-utils';
+import { MOTION } from '@/components/MotionPrimitives';
 
 interface ClassicBook3DCardProps {
   slug: string;
@@ -33,7 +35,7 @@ export default function ClassicBook3DCard({
   const [tilt, setTilt] = useState({ rx: 0, ry: 0, gx: 50, gy: 50, hovered: false });
 
   const handleMove = (e: React.PointerEvent<HTMLAnchorElement>) => {
-    if (prefersReducedMotion()) return;
+    if (e.pointerType !== 'mouse' || prefersReducedMotion()) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
@@ -49,81 +51,91 @@ export default function ClassicBook3DCard({
   const resetTilt = () => setTilt({ rx: 0, ry: 0, gx: 50, gy: 50, hovered: false });
 
   return (
-    <Link
-      href={`/library/${slug}`}
-      onPointerMove={handleMove}
-      onPointerLeave={resetTilt}
-      className="group block no-underline"
-      style={{ perspective: '1100px' }}
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 'some' }}
+      transition={{ duration: 0.5, delay: index * 0.08, ease: MOTION.easeOutExpo }}
+      whileTap={{ scale: 0.985 }}
+      className="h-full"
     >
-      <div
-        className="relative rounded-2xl p-6 h-full flex flex-col overflow-hidden"
-        style={{
-          background: 'var(--bg-card)',
-          border: `1px solid ${tilt.hovered ? 'var(--ac)' : 'var(--bdr-med)'}`,
-          boxShadow: tilt.hovered ? 'var(--sh-lg)' : 'var(--sh-sm)',
-          transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translateY(${tilt.hovered ? -4 : 0}px)`,
-          transformStyle: 'preserve-3d',
-          transition: tilt.hovered
-            ? 'transform 0.08s ease-out, border-color 0.2s ease, box-shadow 0.2s ease'
-            : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.2s ease',
-        }}
+      <Link
+        href={`/library/${slug}`}
+        onPointerMove={handleMove}
+        onPointerLeave={resetTilt}
+        className="group block no-underline h-full"
+        style={{ perspective: '1100px' }}
       >
-        {/* 动态金箔光泽层 */}
         <div
-          className="pointer-events-none absolute inset-0"
+          className="relative rounded-2xl p-6 h-full flex flex-col overflow-hidden"
           style={{
-            opacity: tilt.hovered ? 1 : 0,
-            transition: 'opacity 0.25s ease',
-            background: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, var(--ac-bg) 0%, transparent 62%)`,
+            background: 'var(--bg-card)',
+            border: `1px solid ${tilt.hovered ? 'var(--ac)' : 'var(--bdr-med)'}`,
+            boxShadow: tilt.hovered ? 'var(--sh-lg)' : 'var(--sh-sm)',
+            transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translateY(${tilt.hovered ? -4 : 0}px)`,
+            transformStyle: 'preserve-3d',
+            transition: tilt.hovered
+              ? 'transform 0.08s ease-out, border-color 0.2s ease, box-shadow 0.2s ease'
+              : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.2s ease',
           }}
-        />
-
-        {/* 线装书脊压痕线 */}
-        <div
-          className="pointer-events-none absolute top-0 bottom-0 left-3.5 w-px"
-          style={{ background: 'var(--bdr-med)' }}
-        />
-
-        <div className="relative pl-3 flex flex-col h-full">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <span className="text-[11px] font-mono-num tracking-[0.2em]" style={{ color: 'var(--ac)' }}>
-              VOL.0{index + 1} · {dynasty}
-            </span>
-            <span
-              className="text-[10px] px-2 py-0.5 rounded border font-mono-num"
-              style={{ color: 'var(--tx-3)', borderColor: 'var(--bdr)' }}
-            >
-              {author.split(' ')[0]}
-            </span>
-          </div>
-
-          <h2
-            className="font-serif-cn text-2xl font-bold tracking-[0.14em] mb-3"
-            style={{ color: 'var(--tx-0)' }}
-          >
-            《{title}》
-          </h2>
-
-          <p className="text-xs leading-relaxed flex-1 mb-5" style={{ color: 'var(--tx-2)' }}>
-            {intro}
-          </p>
-
+        >
+          {/* 动态金箔光泽层 */}
           <div
-            className="pt-3.5 flex items-center justify-between text-xs"
-            style={{ borderTop: '1px solid var(--bdr)' }}
-          >
-            <div className="flex items-center gap-3 font-mono-num text-[11px]" style={{ color: 'var(--tx-3)' }}>
-              <span>{chapterCount} 章</span>
-              <span>·</span>
-              <span>{paragraphCount} 段原典</span>
+            className="pointer-events-none absolute inset-0"
+            style={{
+              opacity: tilt.hovered ? 1 : 0,
+              transition: 'opacity 0.25s ease',
+              background: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, var(--ac-bg) 0%, transparent 62%)`,
+            }}
+          />
+
+          {/* 线装书脊压痕线 */}
+          <div
+            className="pointer-events-none absolute top-0 bottom-0 left-3.5 w-px"
+            style={{ background: 'var(--bdr-med)' }}
+          />
+
+          <div className="relative pl-3 flex flex-col h-full">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <span className="text-[11px] font-mono-num tracking-[0.2em]" style={{ color: 'var(--ac)' }}>
+                VOL.0{index + 1} · {dynasty}
+              </span>
+              <span
+                className="text-[10px] px-2 py-0.5 rounded border font-mono-num"
+                style={{ color: 'var(--tx-3)', borderColor: 'var(--bdr)' }}
+              >
+                {author.split(' ')[0]}
+              </span>
             </div>
-            <span className="font-medium tracking-[0.1em]" style={{ color: 'var(--ac)' }}>
-              开卷研读 →
-            </span>
+
+            <h2
+              className="font-serif-cn text-2xl font-bold tracking-[0.14em] mb-3"
+              style={{ color: 'var(--tx-0)' }}
+            >
+              《{title}》
+            </h2>
+
+            <p className="text-xs leading-relaxed flex-1 mb-5" style={{ color: 'var(--tx-2)' }}>
+              {intro}
+            </p>
+
+            <div
+              className="pt-3.5 flex items-center justify-between text-xs"
+              style={{ borderTop: '1px solid var(--bdr)' }}
+            >
+              <div className="flex items-center gap-3 font-mono-num text-[11px]" style={{ color: 'var(--tx-3)' }}>
+                <span>{chapterCount} 章</span>
+                <span>·</span>
+                <span>{paragraphCount} 段原典</span>
+              </div>
+              <span className="font-medium tracking-[0.1em] inline-flex items-center gap-1" style={{ color: 'var(--ac)' }}>
+                <span>开卷研读</span>
+                <span className="hover-arrow-shift">→</span>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </motion.div>
   );
 }

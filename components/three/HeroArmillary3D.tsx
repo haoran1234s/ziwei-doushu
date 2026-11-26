@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   bindPauseLifecycle,
   clampedPixelRatio,
@@ -735,19 +736,34 @@ export default function HeroArmillary3D() {
       {/* 底部极简交互铭牌与控制胶囊（不遮挡核心仪象） */}
       <div className="pointer-events-none absolute inset-x-2 bottom-2 flex flex-wrap items-end justify-between gap-2">
         <div
-          className="pointer-events-auto max-w-[260px] rounded-xl px-3 py-2 backdrop-blur-md"
+          className="pointer-events-auto max-w-[260px] rounded-xl px-3 py-2 backdrop-blur-md overflow-hidden"
           style={{
             background: 'color-mix(in srgb, var(--bg-1) 78%, transparent)',
             border: '1px solid var(--bdr-med)',
           }}
         >
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--ac)' }}>
-            <span>✦</span>
-            <span>{partInfo.title}</span>
-          </div>
-          <p className="text-[11px] leading-snug mt-0.5" style={{ color: 'var(--tx-2)' }}>
-            {partInfo.desc}
-          </p>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activePart}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--ac)' }}>
+                <motion.span
+                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  ✦
+                </motion.span>
+                <span>{partInfo.title}</span>
+              </div>
+              <p className="text-[11px] leading-snug mt-0.5" style={{ color: 'var(--tx-2)' }}>
+                {partInfo.desc}
+              </p>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         <div
@@ -761,7 +777,7 @@ export default function HeroArmillary3D() {
           <button
             type="button"
             onClick={() => setFastMode((v) => !v)}
-            className="px-2 py-0.5 rounded-full transition-colors cursor-pointer"
+            className="px-2 py-0.5 rounded-full transition-all duration-150 active:scale-95 cursor-pointer"
             style={{
               background: fastMode ? 'var(--ac-bg)' : 'transparent',
               color: fastMode ? 'var(--ac)' : 'var(--tx-2)',
@@ -773,7 +789,7 @@ export default function HeroArmillary3D() {
           <button
             type="button"
             onClick={() => setPaused((v) => !v)}
-            className="px-2 py-0.5 rounded-full hover:opacity-80 cursor-pointer"
+            className="px-2 py-0.5 rounded-full transition-all duration-150 hover:text-[var(--tx-0)] active:scale-95 cursor-pointer"
             title={paused ? '继续运转' : '暂停运转'}
           >
             {paused ? '继续' : '暂停'}
@@ -784,7 +800,7 @@ export default function HeroArmillary3D() {
               controlsRef.current.zoomScale = Math.min(1.24, controlsRef.current.zoomScale + 0.12);
               controlsRef.current.triggerPulse();
             }}
-            className="px-1.5 py-0.5 rounded-full hover:opacity-80 cursor-pointer"
+            className="px-1.5 py-0.5 rounded-full transition-all duration-150 hover:text-[var(--tx-0)] active:scale-90 cursor-pointer"
             aria-label="放大模型"
             title="放大"
           >
@@ -796,7 +812,7 @@ export default function HeroArmillary3D() {
               controlsRef.current.zoomScale = Math.max(0.78, controlsRef.current.zoomScale - 0.12);
               controlsRef.current.triggerPulse();
             }}
-            className="px-1.5 py-0.5 rounded-full hover:opacity-80 cursor-pointer"
+            className="px-1.5 py-0.5 rounded-full transition-all duration-150 hover:text-[var(--tx-0)] active:scale-90 cursor-pointer"
             aria-label="缩小模型"
             title="缩小"
           >
@@ -810,7 +826,7 @@ export default function HeroArmillary3D() {
               setActivePart('core');
               controlsRef.current.resetView();
             }}
-            className="px-2 py-0.5 rounded-full hover:opacity-80 cursor-pointer"
+            className="px-2 py-0.5 rounded-full transition-all duration-150 hover:text-[var(--tx-0)] active:scale-95 cursor-pointer"
             title="重置视角"
           >
             复位
