@@ -31,9 +31,11 @@ export function saveChartHistory(form: BirthFormState): ChartHistoryItem[] {
   if (!form.year || !form.month || !form.day) return loadChartHistory();
 
   const labelName = form.name?.trim() || (form.gender === 'male' ? '男命' : '女命');
+  const safeHour = String(form.clockHour ?? '0');
+  const safeMinute = String(form.clockMinute ?? '0');
   const labelTime = form.unknownTime
     ? '时辰不详'
-    : `${form.clockHour.padStart(2, '0')}:${form.clockMinute.padStart(2, '0')}`;
+    : `${safeHour.padStart(2, '0')}:${safeMinute.padStart(2, '0')}`;
   const label = `${labelName} · ${form.year}.${form.month}.${form.day} ${labelTime}`;
 
   const id = [
@@ -41,7 +43,7 @@ export function saveChartHistory(form: BirthFormState): ChartHistoryItem[] {
     form.year,
     form.month,
     form.day,
-    form.unknownTime ? 'u' : `${form.clockHour}:${form.clockMinute}`,
+    form.unknownTime ? 'u' : `${safeHour}:${safeMinute}`,
     form.gender,
     form.city || form.province || '',
   ].join('|');

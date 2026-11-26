@@ -17,6 +17,23 @@ export default function ChartPage() {
   const [chart, setChart] = useState<ZiweiChart | null>(null);
   const [selectedPalace, setSelectedPalace] = useState<Palace | null>(null);
   const [lastForm, setLastForm] = useState<BirthFormState | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleChartSubmit = (info: BirthInfo) => {
+    try {
+      setSubmitError(null);
+      setChart(generateChart(info));
+      if (typeof window !== 'undefined') {
+        window.scrollTo(0, 0);
+      }
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error && err.message
+          ? `排盘失败：${err.message}`
+          : '排盘参数异常，请检查出生日期与时辰后重试',
+      );
+    }
+  };
 
   const shiftShichen = (delta: number) => {
     if (!chart) return;
@@ -25,59 +42,67 @@ export default function ChartPage() {
     setSelectedPalace(null);
   };
 
-  return (
-    <AnimatePresence mode="wait">
-      {!chart ? (
-        <motion.main
-          key="chart-form"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="container-page py-10 sm:py-14"
-        >
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-8">
-              <div className="label-section mb-2">TRUE SOLAR TIME · OBSERVATORY</div>
-              <h1
-                className="font-serif-cn text-3xl sm:text-4xl font-bold tracking-[0.14em] mb-3"
-                style={{ color: 'var(--tx-0)' }}
-              >
-                紫微斗数排盘
-              </h1>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
-                严格依循倪海厦《天纪》三合正宗体系，内建经度与均时差真太阳时校准，
-                <br className="hidden sm:block" />
-                即时生成十二宫星曜格局与 3D 紫微天盘仪。
-              </p>
-            </div>
-            <BirthForm
-              initialData={lastForm ?? undefined}
-              onFormSave={setLastForm}
-              onSubmit={(info: BirthInfo) => setChart(generateChart(info))}
-            />
+  if (!chart) {
+    return (
+      <main key="chart-form" className="container-page py-10 sm:py-14">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            <div className="label-section mb-2">TRUE SOLAR TIME · OBSERVATORY</div>
+            <h1
+              className="font-serif-cn text-3xl sm:text-4xl font-bold tracking-[0.14em] mb-3"
+              style={{ color: 'var(--tx-0)' }}
+            >
+              紫微斗数排盘
+            </h1>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-2)' }}>
+              严格依循倪海厦《天纪》三合正宗体系，内建经度与均时差真太阳时校准，
+              <br className="hidden sm:block" />
+              即时生成十二宫星曜格局与 3D 紫微天盘仪。
+            </p>
           </div>
-        </motion.main>
-      ) : (
-        <motion.main
-          key="chart-workbench"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
-          className="container-page py-5 sm:py-7"
-        >
-          <div
-            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-4 mb-5"
-            style={{ borderBottom: '1px solid var(--bdr)' }}
+          <BirthForm
+            initialData={lastForm ?? undefined}
+            onFormSave={setLastForm}
+            onSubmit={handleChartSubmit}
+          />
+          {submitError && (
+            <div
+              role="alert"
+              className="mt-4 px-4 py-3 rounded-xl text-sm text-center"
+              style={{
+                background: 'color-mix(in srgb, var(--ji) 10%, var(--bg-1))',
+                border: '1px solid color-mix(in srgb, var(--ji) 40%, transparent)',
+                color: 'var(--ji)',
+              }}
+            >
+              {submitError}
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main key="chart-workbench" className="container-page py-5 sm:py-7">
+      <div
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-4 mb-5"
+        style={{ borderBottom: '1px solid var(--bdr)' }}
+      >
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.96 }}
+            onClick={() => {
+              setChart(null);
+              setSelectedPalace(null);
+              setSubmitError(null);
+              if (typeof window !== 'undefined') {
+                window.scrollTo(0, 0);
+              }
+            }}
+            className="btn-ghost group py-1.5 px-4 text-xs"
           >
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.96 }}
-                onClick={() => { setChart(null); setSelectedPalace(null); }}
-                className="btn-ghost group py-1.5 px-4 text-xs"
-              >
                 <span className="hover-arrow-left">←</span>
                 <span>修改生辰</span>
               </motion.button>
@@ -145,8 +170,6 @@ export default function ChartPage() {
               />
             </div>
           </div>
-        </motion.main>
-      )}
-    </AnimatePresence>
+        </main>
   );
 }
