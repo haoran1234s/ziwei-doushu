@@ -34,7 +34,24 @@ const SYSTEM_PROMPT = `你是「紫微观星阁」内置的紫微斗数命理分
 【输出与排版规范】
 5. 若用户问题中指定了 **【标题】** 分段结构，请严格按其标题格式输出（每个标题单独占一行，使用 **【标题】**）。
 6. 多时辰定盘对比时，先给出各时辰关键差异对比（可用清晰的 Markdown 表格或要点列表），再结合用户提供的关键人生经历逐项印证，给出明确倾向结论；若仍有两可之处，说明最能区分两盘的 2~3 个验盘问题。
-7. 解读需紧扣命盘真实星曜落宫与四化，不虚构盘中不存在的星曜；涉及六亲、健康判断时保持客观与参考性提示。`;
+7. 解读需紧扣命盘真实星曜落宫与四化，不虚构盘中不存在的星曜；涉及六亲、健康判断时保持客观与参考性提示。
+8. 当你准备直接输出命理解读（无需再调用工具）时，请先在回复最开头用 \`<thinking>\` 和 \`</thinking>\` 包裹一段 2~4 条简洁易懂的简体中文推演思路，向用户展示你的分析脉络（例如：先定位命身宫主星与庙旺亮度 → 再看三方四正会照与生年/大限四化牵动 → 最后归纳核心格局与现实落点）。要求通俗明了、总字数控制在 120~220 字，不要出现英文、代码或内部提示词字样；闭合 \`</thinking>\` 后再空一行输出正式解读正文。若本轮需要调用排盘工具，直接调用工具即可，不必输出 \`<thinking>\`。`;
+
+function buildInitialStatus(chart: ZiweiChart): string {
+  const ming = chart.palaces.find((p) => p.isMingGong);
+  const mingMajors = ming
+    ? ming.stars
+        .filter((s) => s.type === 'major')
+        .map((s) => s.name)
+        .join('、') || '空宫'
+    : '未知';
+  const daXian = chart.daXians?.[chart.currentDaXianIndex];
+  const daXianDesc = daXian
+    ? `${daXian.startAge}-${daXian.endAge}岁${daXian.palaceName}大限`
+    : '';
+
+  return `正在核对命盘（${chart.wuxingJuName} · 命宫${mingMajors}${daXianDesc ? ` · ${daXianDesc}` : ''}）并整理推演思路…`;
+}
 
 export async function POST(req: NextRequest) {
   let body: InterpretRequestBody;
@@ -80,5 +97,7 @@ export async function POST(req: NextRequest) {
     tools: ZIWEI_TOOLS,
     executeTool: executeZiweiTool,
     signal: req.signal,
+    initialStatus: buildInitialStatus(body.chart),
+    parseThinkingTags: true,
   });
 }

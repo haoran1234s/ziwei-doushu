@@ -47,6 +47,10 @@ export interface OpenAiToolSseOptions {
   executeTool: (name: string, args: string) => Promise<ToolExecutionOutput> | ToolExecutionOutput;
   signal?: AbortSignal;
   maxToolRounds?: number;
+  /** 建立流后立即推送给前端的初始状态提示（如命盘核对摘要） */
+  initialStatus?: string;
+  /** 是否从正文开头的 <thinking>...</thinking>（或 <think>...</think>）中提取中文思考过程，并抑制可能为英文的上游原生 reasoning_content */
+  parseThinkingTags?: boolean;
 }
 
 interface AiConfig {
@@ -194,9 +198,146 @@ interface StreamChunkPayload {
   choices?: Array<{
     delta?: {
       content?: string | null;
+      reasoning_content?: string | null;
+      reasoning?: string | null;
       tool_calls?: StreamDeltaToolCall[];
     };
   }>;
+}
+
+function extractReasoningDelta(delta?: {
+  reasoning_content?: string | null;
+  reasoning?: string | null;
+}): string {
+  if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
+    return delta.reasoning_content;
+  }
+  if (typeof delta?.reasoning === 'string' && delta.reasoning.length > 0) {
+    return delta.reasoning;
+  }
+  return '';
+}
+
+function buildToolStatusMessage(calls: OpenAiToolCall[]): string {
+  const names = new Set(calls.map((c) => c.function.name));
+  if (names.has('compare_shichen_charts')) {
+    return '正在调用内置排盘引擎，排出多个候选时辰命盘进行对比…';
+  }
+  if (names.has('generate_ziwei_chart')) {
+    return '正在调用内置排盘引擎，校准真太阳时并生成新命盘…';
+  }
+  return '正在调用内置排盘引擎排演命盘…';
+}
+
+function createThinkingTagParser(
+  onReasoning: (chunk: string) => void,
+  onText: (chunk: string) => void,
+) {
+  let mode: 'leading' | 'inside' | 'passthrough' = 'leading';
+  let buffer = '';
+  let closeTag = '';
+  let leadingAfterClose = false;
+  let emittedInside = false;
+
+  const emitThoughtChunk = (raw: string) => {
+    const out = emittedInside ? raw : raw.replace(/^\r?\n/, '');
+    if (out) {
+      emittedInside = true;
+      onReasoning(out);
+    }
+  };
+
+  const pushInside = (chunk: string) => {
+    buffer += chunk;
+    const idx = buffer.indexOf(closeTag);
+    if (idx !== -1) {
+      const thought = buffer.slice(0, idx).trimEnd();
+      if (thought) {
+        emitThoughtChunk(thought);
+      }
+      const rest = buffer.slice(idx + closeTag.length);
+      buffer = '';
+      mode = 'passthrough';
+      const cleanedRest = rest.replace(/^[\r\n\s]+/, '');
+      if (cleanedRest) {
+        leadingAfterClose = false;
+        onText(cleanedRest);
+      } else {
+        leadingAfterClose = true;
+      }
+      return;
+    }
+
+    // 保留尾部可能跨 chunk 截断的闭合标签
+    const safeLen = buffer.length - (closeTag.length - 1);
+    if (safeLen > 0) {
+      const safe = buffer.slice(0, safeLen);
+      buffer = buffer.slice(safeLen);
+      emitThoughtChunk(safe);
+    }
+  };
+
+  return {
+    push(chunk: string) {
+      if (!chunk) return;
+      if (mode === 'passthrough') {
+        if (leadingAfterClose) {
+          const stripped = chunk.replace(/^[\r\n\s]+/, '');
+          if (!stripped) return;
+          leadingAfterClose = false;
+          onText(stripped);
+          return;
+        }
+        onText(chunk);
+        return;
+      }
+      if (mode === 'inside') {
+        pushInside(chunk);
+        return;
+      }
+
+      buffer += chunk;
+      const trimmedStart = buffer.replace(/^\s+/, '');
+      if (!trimmedStart) return;
+
+      const tags: Array<{ open: string; close: string }> = [
+        { open: '<thinking>', close: '</thinking>' },
+        { open: '<think>', close: '</think>' },
+      ];
+      for (const tag of tags) {
+        if (trimmedStart.startsWith(tag.open)) {
+          closeTag = tag.close;
+          mode = 'inside';
+          const afterOpen = trimmedStart.slice(tag.open.length).replace(/^\r?\n/, '');
+          buffer = '';
+          if (afterOpen) {
+            pushInside(afterOpen);
+          }
+          return;
+        }
+      }
+
+      if (tags.some((tag) => tag.open.startsWith(trimmedStart))) {
+        return;
+      }
+
+      mode = 'passthrough';
+      const out = buffer;
+      buffer = '';
+      onText(out);
+    },
+    flush() {
+      if (!buffer) return;
+      const out = buffer;
+      buffer = '';
+      if (mode === 'inside') {
+        const cleaned = out.trimEnd();
+        if (cleaned) emitThoughtChunk(cleaned);
+      } else {
+        onText(out);
+      }
+    },
+  };
 }
 
 function isToolsUnsupportedError(status: number, errText: string): boolean {
@@ -275,7 +416,14 @@ export async function createOpenAiSseResponse(
 
         try {
           const parsed = JSON.parse(payload) as StreamChunkPayload;
-          const text = parsed.choices?.[0]?.delta?.content;
+          const delta = parsed.choices?.[0]?.delta;
+          const reasoning = extractReasoningDelta(delta);
+          if (reasoning) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ delta: { reasoning } })}\n\n`),
+            );
+          }
+          const text = delta?.content;
           if (typeof text === 'string' && text.length > 0) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ delta: { text } })}\n\n`),
@@ -352,7 +500,15 @@ export async function createOpenAiToolSseResponse(
     );
   }
 
-  const { messages, tools, executeTool, signal, maxToolRounds = 4 } = options;
+  const {
+    messages,
+    tools,
+    executeTool,
+    signal,
+    maxToolRounds = 4,
+    initialStatus,
+    parseThinkingTags = false,
+  } = options;
   const encoder = new TextEncoder();
 
   const requestCompletion = async (
@@ -397,6 +553,11 @@ export async function createOpenAiToolSseResponse(
       };
 
       try {
+        let hasEmittedReasoning = false;
+        if (initialStatus) {
+          emitEvent({ status: initialStatus });
+        }
+
         for (let round = 0; round <= maxToolRounds; round++) {
           if (signal?.aborted) break;
 
@@ -430,7 +591,29 @@ export async function createOpenAiToolSseResponse(
           const decoder = new TextDecoder();
           let pendingLine = '';
           let roundText = '';
+          let roundHasReasoning = false;
+          let emittedNativeThinkingStatus = false;
           const toolCallMap = new Map<number, OpenAiToolCall>();
+
+          const pushReasoningChunk = (chunk: string) => {
+            if (!chunk) return;
+            if (hasEmittedReasoning && !roundHasReasoning) {
+              emitEvent({ delta: { reasoning: '\n\n' } });
+            }
+            hasEmittedReasoning = true;
+            roundHasReasoning = true;
+            emitEvent({ delta: { reasoning: chunk } });
+          };
+
+          const pushTextChunk = (chunk: string) => {
+            if (!chunk) return;
+            roundText += chunk;
+            emitEvent({ delta: { text: chunk } });
+          };
+
+          const thinkingParser = parseThinkingTags
+            ? createThinkingTagParser(pushReasoningChunk, pushTextChunk)
+            : null;
 
           const consumeSseLine = (rawLine: string) => {
             const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
@@ -443,9 +626,24 @@ export async function createOpenAiToolSseResponse(
               const delta = parsed.choices?.[0]?.delta;
               if (!delta) return;
 
+              const nativeReasoning = extractReasoningDelta(delta);
+              if (nativeReasoning) {
+                if (parseThinkingTags) {
+                  if (!emittedNativeThinkingStatus && !roundHasReasoning) {
+                    emittedNativeThinkingStatus = true;
+                    emitEvent({ status: '正在深入推演十二宫星曜、三方四正与四化逻辑…' });
+                  }
+                } else {
+                  pushReasoningChunk(nativeReasoning);
+                }
+              }
+
               if (typeof delta.content === 'string' && delta.content.length > 0) {
-                roundText += delta.content;
-                emitEvent({ delta: { text: delta.content } });
+                if (thinkingParser) {
+                  thinkingParser.push(delta.content);
+                } else {
+                  pushTextChunk(delta.content);
+                }
               }
 
               if (Array.isArray(delta.tool_calls)) {
@@ -481,6 +679,7 @@ export async function createOpenAiToolSseResponse(
             if (pendingLine.trim()) {
               consumeSseLine(pendingLine);
             }
+            thinkingParser?.flush();
           } finally {
             await reader.cancel().catch(() => {});
             reader.releaseLock();
@@ -495,7 +694,7 @@ export async function createOpenAiToolSseResponse(
             break;
           }
 
-          emitEvent({ status: '正在调用内置排盘引擎排演命盘…' });
+          emitEvent({ status: buildToolStatusMessage(collectedCalls) });
 
           workingMessages.push({
             role: 'assistant',
@@ -529,7 +728,7 @@ export async function createOpenAiToolSseResponse(
             emitEvent({ charts: roundCharts });
           }
 
-          emitEvent({ status: '' });
+          emitEvent({ status: '排盘已完成，正在结合最新星曜与四化深入研判…' });
         }
 
         emitDone();

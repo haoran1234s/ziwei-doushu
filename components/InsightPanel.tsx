@@ -15,6 +15,8 @@ export interface GeneratedChartItem {
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  reasoning?: string;
+  reasoningMs?: number;
   hidden?: boolean;
   status?: string;
   generatedCharts?: GeneratedChartItem[];
@@ -483,6 +485,7 @@ export default function InsightPanel({
   const [expanded, setExpanded] = useState(false);
   const [fontScale, setFontScale] = useState<FontScale>('md');
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [openReasoning, setOpenReasoning] = useState<Record<number, boolean>>({});
 
   const messagesRef = useRef<Message[]>([]);
   const loadingRef = useRef(false);
@@ -586,6 +589,9 @@ export default function InsightPanel({
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let assistantText = '';
+      let assistantReasoning = '';
+      let reasoningStartAt: number | null = null;
+      let reasoningMs: number | undefined;
       let currentStatus = '';
       let attachedCharts: GeneratedChartItem[] = [];
       let pendingLine = '';
@@ -599,6 +605,8 @@ export default function InsightPanel({
           updated[updated.length - 1] = {
             role: 'assistant',
             content: assistantText,
+            reasoning: assistantReasoning || undefined,
+            reasoningMs,
             status: currentStatus || undefined,
             generatedCharts: attachedCharts.length > 0 ? attachedCharts : undefined,
           };
@@ -614,7 +622,7 @@ export default function InsightPanel({
 
         try {
           const parsed = JSON.parse(data) as {
-            delta?: { text?: string };
+            delta?: { text?: string; reasoning?: string };
             status?: string;
             charts?: GeneratedChartItem[];
             error?: string;
@@ -629,7 +637,20 @@ export default function InsightPanel({
             attachedCharts = [...attachedCharts, ...parsed.charts];
             changed = true;
           }
+          if (typeof parsed.delta?.reasoning === 'string' && parsed.delta.reasoning.length > 0) {
+            if (reasoningStartAt === null) {
+              reasoningStartAt = Date.now();
+            }
+            assistantReasoning += parsed.delta.reasoning;
+            reasoningMs = Math.max(100, Date.now() - reasoningStartAt);
+            currentStatus = '';
+            changed = true;
+          }
           if (typeof parsed.delta?.text === 'string' && parsed.delta.text.length > 0) {
+            if (reasoningStartAt !== null) {
+              reasoningMs = Math.max(100, Date.now() - reasoningStartAt);
+              reasoningStartAt = null;
+            }
             assistantText += parsed.delta.text;
             currentStatus = '';
             changed = true;
@@ -669,7 +690,12 @@ export default function InsightPanel({
         setMessages((prev) => {
           if (prev.length === 0) return prev;
           const last = prev[prev.length - 1];
-          if (last.role === 'assistant' && !last.content.trim() && !last.generatedCharts?.length) {
+          if (
+            last.role === 'assistant' &&
+            !last.content.trim() &&
+            !last.reasoning?.trim() &&
+            !last.generatedCharts?.length
+          ) {
             return prev.slice(0, -1);
           }
           const updated = [...prev];
@@ -793,6 +819,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
     stopGeneration();
     setMessages([]);
     setCopiedIdx(null);
+    setOpenReasoning({});
   };
 
   const handleCopyMessage = async (idx: number, content: string) => {
@@ -1097,16 +1124,108 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
                       color: 'var(--ac-dim)',
                     }}
                   >
-                    <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--ac)' }} />
+                    <span className="inline-block w-2 h-2 rounded-full animate-pulse shrink-0" style={{ background: 'var(--ac)' }} />
                     <span>{msg.status}</span>
                   </div>
                 )}
 
+                {msg.reasoning && (() => {
+                  const isThinkingPhase = isStreamingMsg && !msg.content && !msg.status;
+                  const isReasoningOpen = openReasoning[i] ?? isThinkingPhase;
+                  return (
+                    <div
+                      className="mb-3 rounded-xl overflow-hidden"
+                      style={{
+                        background: 'var(--bg-1)',
+                        border: '1px solid var(--bdr-med)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        aria-expanded={isReasoningOpen}
+                        onClick={() =>
+                          setOpenReasoning((prev) => ({
+                            ...prev,
+                            [i]: !isReasoningOpen,
+                          }))
+                        }
+                        className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors hover:bg-[var(--ac-bg)]"
+                      >
+                        <span className="inline-flex items-center gap-2 min-w-0">
+                          {isThinkingPhase ? (
+                            <span
+                              className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0"
+                              style={{ background: 'var(--ac)' }}
+                            />
+                          ) : (
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              className="shrink-0"
+                              style={{ color: 'var(--ac)' }}
+                              aria-hidden="true"
+                            >
+                              <circle cx="8" cy="8" r="6" />
+                              <circle cx="8" cy="8" r="2" />
+                            </svg>
+                          )}
+                          <span className="text-xs font-medium truncate" style={{ color: 'var(--tx-1)' }}>
+                            {isThinkingPhase ? '正在推演思路…' : '推演思路'}
+                          </span>
+                          {typeof msg.reasoningMs === 'number' && !isThinkingPhase && (
+                            <span className="font-mono-num text-[11px] shrink-0" style={{ color: 'var(--tx-3)' }}>
+                              已思考 {(msg.reasoningMs / 1000).toFixed(1)} 秒
+                            </span>
+                          )}
+                        </span>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          className="shrink-0 transition-transform duration-200 ease-out"
+                          style={{
+                            color: 'var(--tx-3)',
+                            transform: isReasoningOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                          }}
+                          aria-hidden="true"
+                        >
+                          <path d="M4 6l4 4 4-4" />
+                        </svg>
+                      </button>
+
+                      {isReasoningOpen && (
+                        <div
+                          className="px-3.5 py-2.5 text-[12.5px] leading-[1.7] whitespace-pre-wrap break-words max-h-60 overflow-y-auto overscroll-contain"
+                          style={{
+                            borderTop: '1px solid var(--bdr)',
+                            color: 'var(--tx-2)',
+                          }}
+                        >
+                          {msg.reasoning}
+                          {isThinkingPhase && (
+                            <span
+                              className="inline-block w-1.5 h-3 ml-1 animate-cursor-blink rounded-sm align-middle"
+                              style={{ background: 'var(--ac)', opacity: 0.7 }}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {msg.content ? (
                   <AiContent text={msg.content} streaming={isStreamingMsg} fontScale={fontScale} />
-                ) : isStreamingMsg && !msg.status ? (
+                ) : isStreamingMsg && !msg.status && !msg.reasoning ? (
                   <div className="text-xs font-mono-num py-1" style={{ color: 'var(--tx-3)' }}>
-                    正在推演思考…
+                    正在连接命理引擎，整理十二宫星曜…
                   </div>
                 ) : null}
 
