@@ -57,6 +57,37 @@ interface AiConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
+  fallbackModels: string[];
+}
+
+function resolveFallbackModels(baseUrl: string, primaryModel: string): string[] {
+  const raw = (process.env.OPENAI_FALLBACK_MODELS ?? process.env.OPENAI_FALLBACK_MODEL ?? '').trim();
+  if (raw) {
+    if (/^(none|off|false|0)$/i.test(raw)) {
+      return [];
+    }
+    const seen = new Set<string>([primaryModel]);
+    const list: string[] = [];
+    for (const part of raw.split(/[,;]+/)) {
+      const item = part.trim();
+      if (!item || seen.has(item)) continue;
+      seen.add(item);
+      list.push(item);
+    }
+    return list;
+  }
+
+  // Google AI Studio 免费层高峰期高负载自动兜底
+  if (baseUrl.includes('generativelanguage.googleapis.com')) {
+    if (/^gemini-3\.8/i.test(primaryModel)) {
+      return ['gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+    }
+    if (primaryModel === 'gemini-3.6-flash') {
+      return ['gemini-3.5-flash-lite'];
+    }
+  }
+
+  return [];
 }
 
 /**
@@ -78,7 +109,12 @@ export function getAiConfig(): AiConfig {
     process.env.MIMO_MODEL?.trim() ||
     'deepseek-chat';
 
-  return { apiKey, baseUrl, model };
+  return {
+    apiKey,
+    baseUrl,
+    model,
+    fallbackModels: resolveFallbackModels(baseUrl, model),
+  };
 }
 
 function formatStar(star: Star): string {
@@ -345,6 +381,246 @@ function isToolsUnsupportedError(status: number, errText: string): boolean {
   return /tool|function|tool_choice/i.test(errText);
 }
 
+const RETRYABLE_UPSTREAM_STATUSES = new Set([502, 503, 504, 520, 522, 524]);
+const FALLBACK_UPSTREAM_STATUSES = new Set([429, 502, 503, 504, 520, 522, 524]);
+const UPSTREAM_MAX_RETRIES = 1;
+const UPSTREAM_RETRY_DELAY_MS = 800;
+/** 当存在备用模型时，单次等待上游响应头的超时时间（毫秒），超时后立即切换备用模型 */
+const FALLBACK_HEADER_TIMEOUT_MS = 18_000;
+
+interface FormattedUpstreamError {
+  userMessage: string;
+  logDetail: string;
+}
+
+interface UpstreamFetchResult {
+  res: Response;
+  errText: string;
+  userError: string;
+  usedModel: string;
+}
+
+function sleepWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function isHtmlErrorBody(contentType: string, body: string): boolean {
+  if (contentType.toLowerCase().includes('text/html')) {
+    return true;
+  }
+  return /^\s*(<!doctype\s+html|<html[\s>])/i.test(body);
+}
+
+function extractHtmlTitle(html: string): string {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (!match) return '';
+  return match[1].replace(/\s+/g, ' ').trim();
+}
+
+function extractJsonErrorMessage(rawBody: string): string {
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    const root = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (typeof root !== 'object' || root === null) return '';
+    const record = root as Record<string, unknown>;
+    if (typeof record.error === 'object' && record.error !== null) {
+      const errObj = record.error as Record<string, unknown>;
+      if (typeof errObj.message === 'string') {
+        return errObj.message;
+      }
+    }
+    if (typeof record.message === 'string') {
+      return record.message;
+    }
+  } catch {
+    // 非 JSON 响应走纯文本回退
+  }
+  return '';
+}
+
+function formatUpstreamError(
+  status: number,
+  contentType: string,
+  rawBody: string,
+): FormattedUpstreamError {
+  if (isHtmlErrorBody(contentType, rawBody)) {
+    const title = extractHtmlTitle(rawBody);
+    const logDetail = title || rawBody.replace(/\s+/g, ' ').trim().slice(0, 120);
+    return {
+      userMessage: `上游模型服务临时异常 (${status})，请稍后重试`,
+      logDetail,
+    };
+  }
+
+  const jsonMsg = extractJsonErrorMessage(rawBody);
+  const summary = (jsonMsg || rawBody).replace(/\s+/g, ' ').trim().slice(0, 160);
+  return {
+    userMessage: `上游模型接口请求失败 (${status})${summary ? `：${summary}` : ''}`,
+    logDetail: summary,
+  };
+}
+
+async function fetchOnceWithOptionalHeaderTimeout(
+  url: string,
+  init: Omit<RequestInit, 'signal'>,
+  signal: AbortSignal | undefined,
+  headerTimeoutMs?: number,
+): Promise<Response> {
+  if (!headerTimeoutMs) {
+    return fetch(url, { ...init, signal });
+  }
+
+  const controller = new AbortController();
+  const onExternalAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', onExternalAbort, { once: true });
+    }
+  }
+
+  const timer = setTimeout(() => {
+    controller.abort(new Error('UPSTREAM_HEADER_TIMEOUT'));
+  }, headerTimeoutMs);
+
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) {
+      signal?.removeEventListener('abort', onExternalAbort);
+    }
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onExternalAbort);
+    throw err;
+  }
+}
+
+async function fetchUpstreamWithRetry(params: {
+  url: string;
+  apiKey: string;
+  payload: Record<string, unknown>;
+  signal?: AbortSignal;
+  route: string;
+  model: string;
+  fallbackModels?: string[];
+  onFallback?: (fromModel: string, toModel: string, status: number) => void;
+}): Promise<UpstreamFetchResult> {
+  const { url, apiKey, payload, signal, route, model, fallbackModels, onFallback } = params;
+  const candidateModels = [model, ...(fallbackModels ?? []).filter((m) => m && m !== model)];
+
+  for (let modelIdx = 0; modelIdx < candidateModels.length; modelIdx++) {
+    const currentModel = candidateModels[modelIdx];
+    const hasNextFallback = modelIdx < candidateModels.length - 1;
+
+    for (let attempt = 0; attempt <= UPSTREAM_MAX_RETRIES; attempt++) {
+      const startedAt = Date.now();
+      let res: Response;
+      try {
+        res = await fetchOnceWithOptionalHeaderTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({ ...payload, model: currentModel }),
+          },
+          signal,
+          hasNextFallback ? FALLBACK_HEADER_TIMEOUT_MS : undefined,
+        );
+      } catch (err) {
+        if (signal?.aborted) {
+          throw err;
+        }
+        const detail = err instanceof Error ? err.message : String(err);
+        console.error(
+          '[AI Upstream Error]',
+          JSON.stringify({
+            route,
+            status: 504,
+            attempt: attempt + 1,
+            durationMs: Date.now() - startedAt,
+            model: currentModel,
+            cfRay: null,
+            detail: `上游响应头超时或连接异常：${detail.slice(0, 120)}`,
+          }),
+        );
+        if (hasNextFallback) {
+          onFallback?.(currentModel, candidateModels[modelIdx + 1], 504);
+          break;
+        }
+        throw err;
+      }
+
+      if (res.ok && res.body) {
+        return { res, errText: '', userError: '', usedModel: currentModel };
+      }
+
+      const errText = await res.text().catch(() => '');
+      const contentType = res.headers.get('content-type') ?? '';
+      const cfRay = res.headers.get('cf-ray');
+      const formatted = formatUpstreamError(res.status, contentType, errText);
+
+      console.error(
+        '[AI Upstream Error]',
+        JSON.stringify({
+          route,
+          status: res.status,
+          attempt: attempt + 1,
+          durationMs: Date.now() - startedAt,
+          model: currentModel,
+          cfRay,
+          detail: formatted.logDetail,
+        }),
+      );
+
+      // 有可用备用模型且遇到限流/高负载/网关错误（或备用模型自身 404）时立即切换，避免白等重试延迟
+      if (
+        hasNextFallback &&
+        !signal?.aborted &&
+        (FALLBACK_UPSTREAM_STATUSES.has(res.status) || (modelIdx > 0 && res.status === 404))
+      ) {
+        onFallback?.(currentModel, candidateModels[modelIdx + 1], res.status);
+        break;
+      }
+
+      if (
+        RETRYABLE_UPSTREAM_STATUSES.has(res.status) &&
+        attempt < UPSTREAM_MAX_RETRIES &&
+        !signal?.aborted
+      ) {
+        await sleepWithSignal(UPSTREAM_RETRY_DELAY_MS, signal);
+        if (signal?.aborted) {
+          return { res, errText, userError: formatted.userMessage, usedModel: currentModel };
+        }
+        continue;
+      }
+
+      return { res, errText, userError: formatted.userMessage, usedModel: currentModel };
+    }
+  }
+
+  throw new Error('Unexpected upstream retry loop termination');
+}
+
 /**
  * 调用 OpenAI 兼容 /chat/completions 流式接口，并转换为前端约定的 SSE 格式：
  * data: {"delta":{"text":"..."}}\n\n ... data: [DONE]\n\n
@@ -353,7 +629,7 @@ export async function createOpenAiSseResponse(
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<Response> {
-  const { apiKey, baseUrl, model } = getAiConfig();
+  const { apiKey, baseUrl, model, fallbackModels } = getAiConfig();
   if (!apiKey) {
     return Response.json(
       { error: '未配置 OPENAI_API_KEY（请检查 .env.local）' },
@@ -361,27 +637,25 @@ export async function createOpenAiSseResponse(
     );
   }
 
-  const upstreamRes = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
+  const { res: upstreamRes, userError } = await fetchUpstreamWithRetry({
+    url: `${baseUrl}/chat/completions`,
+    apiKey,
+    payload: {
       model,
       stream: true,
       temperature: 0.7,
       messages,
-    }),
+    },
     signal,
+    route: 'sse',
+    model,
+    fallbackModels,
   });
 
   if (!upstreamRes.ok || !upstreamRes.body) {
-    const errText = await upstreamRes.text().catch(() => '');
     return Response.json(
       {
-        error: `上游模型接口请求失败 (${upstreamRes.status})`,
-        detail: errText.slice(0, 300),
+        error: userError || `上游模型接口请求失败 (${upstreamRes.status})`,
       },
       { status: upstreamRes.status || 502 },
     );
@@ -492,7 +766,7 @@ export async function createOpenAiSseResponse(
 export async function createOpenAiToolSseResponse(
   options: OpenAiToolSseOptions,
 ): Promise<Response> {
-  const { apiKey, baseUrl, model } = getAiConfig();
+  const { apiKey, baseUrl, model, fallbackModels } = getAiConfig();
   if (!apiKey) {
     return Response.json(
       { error: '未配置 OPENAI_API_KEY（请检查 .env.local）' },
@@ -514,9 +788,12 @@ export async function createOpenAiToolSseResponse(
   const requestCompletion = async (
     workingMessages: ChatMessage[],
     useTools: boolean,
-  ): Promise<Response> => {
+    currentModel: string,
+    remainingFallbacks: string[],
+    onFallback?: (fromModel: string, toModel: string, status: number) => void,
+  ): Promise<UpstreamFetchResult> => {
     const payload: Record<string, unknown> = {
-      model,
+      model: currentModel,
       stream: true,
       temperature: 0.7,
       messages: workingMessages,
@@ -526,14 +803,15 @@ export async function createOpenAiToolSseResponse(
       payload.tool_choice = 'auto';
     }
 
-    return fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(payload),
+    return fetchUpstreamWithRetry({
+      url: `${baseUrl}/chat/completions`,
+      apiKey,
+      payload,
       signal,
+      route: 'tool-sse',
+      model: currentModel,
+      fallbackModels: remainingFallbacks,
+      onFallback,
     });
   };
 
@@ -542,6 +820,8 @@ export async function createOpenAiToolSseResponse(
       const workingMessages: ChatMessage[] = [...messages];
       let sentDone = false;
       let allowTools = tools.length > 0;
+      let activeModel = model;
+      const allModels = [model, ...fallbackModels.filter((m) => m && m !== model)];
 
       const emitEvent = (obj: Record<string, unknown>) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
@@ -558,36 +838,57 @@ export async function createOpenAiToolSseResponse(
           emitEvent({ status: initialStatus });
         }
 
+        const handleFallback = (_from: string, to: string) => {
+          emitEvent({ status: `主模型高峰繁忙，已自动切换至备用模型（${to}）继续推演…` });
+        };
+
         for (let round = 0; round <= maxToolRounds; round++) {
           if (signal?.aborted) break;
 
+          const activeIdx = allModels.indexOf(activeModel);
+          const remainingFallbacks = activeIdx >= 0 ? allModels.slice(activeIdx + 1) : [];
+
           // 超出工具轮次上限时，强制以纯文本收尾
           const useToolsThisRound = allowTools && round < maxToolRounds;
-          let upstreamRes = await requestCompletion(workingMessages, useToolsThisRound);
+          let result = await requestCompletion(
+            workingMessages,
+            useToolsThisRound,
+            activeModel,
+            remainingFallbacks,
+            handleFallback,
+          );
+          activeModel = result.usedModel;
 
           // 若网关不支持 tools/function calling，自动降级为普通流式对话
-          if (!upstreamRes.ok && useToolsThisRound) {
-            const errText = await upstreamRes.text().catch(() => '');
-            if (isToolsUnsupportedError(upstreamRes.status, errText)) {
+          if (!result.res.ok && useToolsThisRound) {
+            if (isToolsUnsupportedError(result.res.status, result.errText)) {
               allowTools = false;
-              upstreamRes = await requestCompletion(workingMessages, false);
+              const nextIdx = allModels.indexOf(activeModel);
+              const nextFallbacks = nextIdx >= 0 ? allModels.slice(nextIdx + 1) : [];
+              result = await requestCompletion(
+                workingMessages,
+                false,
+                activeModel,
+                nextFallbacks,
+                handleFallback,
+              );
+              activeModel = result.usedModel;
             } else {
               emitEvent({
-                error: `上游模型接口请求失败 (${upstreamRes.status})${errText ? `：${errText.slice(0, 160)}` : ''}`,
+                error: result.userError || `上游模型接口请求失败 (${result.res.status})`,
               });
               break;
             }
           }
 
-          if (!upstreamRes.ok || !upstreamRes.body) {
-            const errText = await upstreamRes.text().catch(() => '');
+          if (!result.res.ok || !result.res.body) {
             emitEvent({
-              error: `上游模型接口请求失败 (${upstreamRes.status})${errText ? `：${errText.slice(0, 160)}` : ''}`,
+              error: result.userError || `上游模型接口请求失败 (${result.res.status})`,
             });
             break;
           }
 
-          const reader = upstreamRes.body.getReader();
+          const reader = result.res.body.getReader();
           const decoder = new TextDecoder();
           let pendingLine = '';
           let roundText = '';
